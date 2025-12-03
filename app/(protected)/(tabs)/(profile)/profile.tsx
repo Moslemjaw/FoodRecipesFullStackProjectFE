@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, TouchableOpacity, Alert } from "react-native";
+import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
 import React, { useContext } from "react";
 import { useRouter } from "expo-router";
 import AuthContext from "@/context/AuthContext";
@@ -8,22 +8,9 @@ export default function Profile() {
   const { setIsAutheticated } = useContext(AuthContext);
   const router = useRouter();
 
-  const handleLogout = () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
-      {
-        text: "Cancel",
-        style: "cancel",
-      },
-      {
-        text: "Logout",
-        style: "destructive",
-        onPress: async () => {
-          await deleteToken();
-          setIsAutheticated(false);
-          router.replace("/(auth)/login" as any);
-        },
-      },
-    ]);
+  const handleLogout = async () => {
+    await deleteToken();
+    setIsAutheticated(false);
   };
 
   return (
@@ -38,6 +25,9 @@ export default function Profile() {
         </View>
 
         <View style={styles.section}>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.menuItem}>
             <Text style={styles.menuItemText}>Edit Profile</Text>
             <Text style={styles.arrow}>›</Text>
@@ -53,10 +43,6 @@ export default function Profile() {
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
         </View>
-
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>Logout</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -134,7 +120,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: "center",
-    marginTop: "auto",
+    marginBottom: 24,
     shadowColor: "#EF4444",
     shadowOffset: {
       width: 0,

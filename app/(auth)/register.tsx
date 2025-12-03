@@ -21,6 +21,7 @@ export default function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [image, setImage] = useState<string | null>(null);
   const router = useRouter();
   const { setIsAutheticated } = useContext(AuthContext);
@@ -36,6 +37,10 @@ export default function Register() {
   });
 
   const handleRegistration = () => {
+    if (password !== confirmPassword) {
+      alert("Passwords do not match");
+      return;
+    }
     if (email && password && name) {
       mutate();
     }
@@ -120,6 +125,20 @@ export default function Register() {
                 placeholderTextColor="#9CA3AF"
                 value={password}
                 onChangeText={setPassword}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Confirm Password</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Confirm your password"
+                placeholderTextColor="#9CA3AF"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
                 secureTextEntry
                 autoCapitalize="none"
                 autoCorrect={false}
