@@ -10,11 +10,12 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { getAllRecipes } from "@/api/recipes";
 import { getAllCategories } from "@/api/categories";
+import { addFavorite, removeFavorite, getMyFavorites } from "@/api/favorites";
 import Recipe from "@/types/Recipe";
 import Category from "@/types/Category";
 
@@ -22,6 +23,7 @@ export default function Explore() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const {
     data: recipes = [],
@@ -36,6 +38,45 @@ export default function Explore() {
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
     queryKey: ["categories"],
     queryFn: getAllCategories,
+  });
+
+  const { data: favorites = [] } = useQuery({
+    queryKey: ["favorites"],
+    queryFn: getMyFavorites,
+  });
+
+  // Create a map of favorite recipe IDs for quick lookup
+  const favoriteRecipeIds = useMemo(() => {
+    const ids = new Set<string>();
+    favorites.forEach((favorite) => {
+      const recipeId =
+        typeof favorite.recipeID === "object"
+          ? favorite.recipeID._id
+          : favorite.recipeID;
+      if (recipeId) {
+        ids.add(recipeId);
+      }
+    });
+    return ids;
+  }, [favorites]);
+
+  const favoriteMutation = useMutation({
+    mutationFn: async ({
+      recipeId,
+      isFavorited,
+    }: {
+      recipeId: string;
+      isFavorited: boolean;
+    }) => {
+      if (isFavorited) {
+        await removeFavorite(recipeId);
+      } else {
+        await addFavorite(recipeId);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["favorites"] });
+    },
   });
 
   const filteredRecipes = useMemo(() => {
@@ -66,11 +107,22 @@ export default function Explore() {
     router.push(`/(protected)/recipe/${recipeId}` as any);
   };
 
+  const handleFavoritePress = (
+    e: any,
+    recipeId: string,
+    isFavorited: boolean
+  ) => {
+    e.stopPropagation();
+    favoriteMutation.mutate({ recipeId, isFavorited });
+  };
+
   const renderRecipeCard = ({ item }: { item: Recipe }) => {
     const categoryName =
       typeof item.categoryId === "object" && item.categoryId
         ? item.categoryId.name
         : "Uncategorized";
+
+    const isFavorited = favoriteRecipeIds.has(item._id);
 
     return (
       <TouchableOpacity
@@ -85,6 +137,20 @@ export default function Explore() {
             <Ionicons name="restaurant-outline" size={40} color="#9CA3AF" />
           </View>
         )}
+        <TouchableOpacity
+          style={[
+            styles.favoriteButton,
+            isFavorited && styles.favoriteButtonActive,
+          ]}
+          onPress={(e) => handleFavoritePress(e, item._id, isFavorited)}
+          disabled={favoriteMutation.isPending}
+        >
+          <Ionicons
+            name={isFavorited ? "heart" : "heart-outline"}
+            size={20}
+            color={isFavorited ? "#EF4444" : "#FFFFFF"}
+          />
+        </TouchableOpacity>
         <View style={styles.recipeInfo}>
           <Text style={styles.recipeTitle} numberOfLines={2}>
             {item.title}
@@ -293,6 +359,29 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
+    position: "relative",
+  },
+  favoriteButton: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  favoriteButtonActive: {
+    backgroundColor: "#FFFFFF",
   },
   recipeImage: {
     width: "100%",
