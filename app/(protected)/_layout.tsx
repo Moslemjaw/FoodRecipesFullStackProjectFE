@@ -1,27 +1,20 @@
-import { StyleSheet, Text, View } from "react-native";
-import React, { useContext } from "react";
 import AuthContext from "@/context/AuthContext";
 import { Redirect, Stack } from "expo-router";
+import { useContext } from "react";
 
-const ProtectedLayout = () => {
-  const { isAutheticated, setIsAutheticated } = useContext(AuthContext);
+export default function ProtectedLayout() {
+  const { isAutheticated } = useContext(AuthContext);
 
   if (!isAutheticated) {
-    return <Redirect href={"/"} />;
+    return <Redirect href="/(auth)/login" />;
   }
 
   return (
-    <Stack>
-      <Stack.Screen
-        name="(tabs)"
-        options={{
-          headerShown: false,
-        }}
-      />
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="(modals)" options={{ presentation: "modal" }} />
+      <Stack.Screen name="category" />
+      <Stack.Screen name="recipe" />
     </Stack>
   );
-};
-
-export default ProtectedLayout;
-
-const styles = StyleSheet.create({});
+}
