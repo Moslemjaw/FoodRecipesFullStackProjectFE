@@ -63,7 +63,7 @@ export default function Explore() {
   }, [recipes, searchQuery, selectedCategory]);
 
   const handleRecipePress = (recipeId: string) => {
-    router.push(`/(protected)/recipe?id=${recipeId}` as any);
+    router.push(`/(protected)/recipe/${recipeId}` as any);
   };
 
   const renderRecipeCard = ({ item }: { item: Recipe }) => {

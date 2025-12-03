@@ -1,14 +1,11 @@
+import { Stack } from "expo-router";
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet } from "react-native";
 
-const favoritesLayout = () => {
-  return (
-    <View>
-      <Text>favoritesLayout</Text>
-    </View>
-  );
+const FavoritesLayout = () => {
+  return <Stack screenOptions={{ headerShown: false }} />;
 };
 
-export default favoritesLayout;
+export default FavoritesLayout;
 
 const styles = StyleSheet.create({});
