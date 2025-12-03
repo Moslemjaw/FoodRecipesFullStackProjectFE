@@ -1,14 +1,11 @@
-import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Stack } from "expo-router";
 
-const ModalLayout = () => {
+export default function ModalsLayout() {
   return (
-    <View>
-      <Text>ModalLayout</Text>
-    </View>
+    <Stack screenOptions={{ headerShown: false, presentation: "modal" }}>
+      <Stack.Screen name="createRecipe" />
+      <Stack.Screen name="createIngredient" />
+      <Stack.Screen name="createCategory" />
+    </Stack>
   );
-};
-
-export default ModalLayout;
-
-const styles = StyleSheet.create({});
+}
