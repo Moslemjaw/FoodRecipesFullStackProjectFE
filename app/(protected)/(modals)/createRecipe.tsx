@@ -4,7 +4,7 @@ import { createRecipe } from "@/api/recipes";
 import Category from "@/types/Category";
 import Ingredient from "@/types/Ingredient";
 import { Ionicons } from "@expo/vector-icons";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
@@ -21,6 +21,7 @@ import {
 
 export default function CreateRecipe() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [instructions, setInstructions] = useState("");
   const [cookingTime, setCookingTime] = useState("");
@@ -29,12 +30,6 @@ export default function CreateRecipe() {
   const [selectedIngredients, setSelectedIngredients] = useState<
     { ingredientId: string; quantity: string; unit: string }[]
   >([]);
-  {
-    ingredientId: "";
-    quantity: "";
-    unit: "";
-  }
-  [] > [];
   const [error, setError] = useState<string>("");
 
   // Fetch categories
@@ -51,25 +46,89 @@ export default function CreateRecipe() {
 
   // Create recipe mutation
   const { mutate, isPending } = useMutation({
-    mutationFn: () =>
-      createRecipe(
-        title,
-        instructions,
+    mutationFn: () => {
+      const validIngredients = selectedIngredients
+        .filter((ing) => ing.ingredientId && ing.quantity && ing.unit)
+        .map((ing) => {
+          const quantity = parseFloat(ing.quantity);
+          if (isNaN(quantity) || quantity <= 0) {
+            throw new Error(`Invalid quantity for ingredient: ${ing.quantity}`);
+          }
+          return {
+            ingredientId: ing.ingredientId,
+            quantity: quantity,
+            unit: ing.unit.trim(),
+          };
+        });
+
+      console.log("Submitting recipe:", {
+        title: title.trim(),
+        instructionsLength: instructions.trim().length,
+        cookingTime: parseInt(cookingTime) || 0,
+        categoryId: selectedCategory,
+        ingredients: validIngredients,
+        hasImage: !!image,
+      });
+
+      return createRecipe(
+        title.trim(),
+        instructions.trim(),
         parseInt(cookingTime) || 0,
         selectedCategory,
-        selectedIngredients.map((ing) => ({
-          ingredientId: ing.ingredientId,
-          quantity: parseInt(ing.quantity) || 0,
-          unit: ing.unit,
-        })),
+        validIngredients,
         image || undefined
-      ),
+      );
+    },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recipes"] });
       Alert.alert("Success", "Recipe created successfully!");
       router.back();
     },
     onError: (err: any) => {
-      setError(err?.response?.data?.message || "Failed to create recipe");
+      console.error("Recipe creation error:", err);
+      console.error("Error response data:", err?.response?.data);
+      console.error("Error response status:", err?.response?.status);
+
+      let errorMessage = "Failed to create recipe. Please try again.";
+
+      // Try to extract error message from HTML response
+      if (err?.response?.data) {
+        const data = err.response.data;
+
+        // If it's an HTML string, try to extract the error message
+        if (typeof data === "string") {
+          // Try to extract TypeError message
+          const typeErrorMatch = data.match(/TypeError: ([^<\n]+)/);
+          if (typeErrorMatch) {
+            errorMessage = `Backend Error: ${typeErrorMatch[1].trim()}`;
+          } else {
+            // Try to find any error message
+            const errorMatch = data.match(/Error: ([^<\n]+)/);
+            if (errorMatch) {
+              errorMessage = errorMatch[1].trim();
+            } else if (data.length < 200) {
+              // If it's a short string, use it directly
+              errorMessage = data;
+            } else {
+              errorMessage =
+                "Backend error occurred. Check console for details.";
+            }
+          }
+        } else if (data.message) {
+          errorMessage = data.message;
+        } else if (data.error) {
+          errorMessage = data.error;
+        } else if (typeof data === "string") {
+          errorMessage = data;
+        } else if (data.toString) {
+          errorMessage = data.toString();
+        }
+      } else if (err?.message) {
+        errorMessage = err.message;
+      }
+
+      setError(errorMessage);
+      Alert.alert("Error", errorMessage);
     },
   });
 
@@ -81,7 +140,7 @@ export default function CreateRecipe() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [16, 9],
       quality: 0.8,
@@ -124,10 +183,37 @@ export default function CreateRecipe() {
       setError("Please enter instructions");
       return;
     }
+    if (!cookingTime || parseInt(cookingTime) <= 0) {
+      setError("Please enter a valid cooking time");
+      return;
+    }
     if (!selectedCategory) {
       setError("Please select a category");
       return;
     }
+    if (selectedIngredients.length === 0) {
+      setError("Please add at least one ingredient");
+      return;
+    }
+    // Validate that all ingredients have required fields
+    const invalidIngredients = selectedIngredients.filter(
+      (ing) => !ing.ingredientId || !ing.quantity || !ing.unit
+    );
+    if (invalidIngredients.length > 0) {
+      setError("Please fill in all ingredient fields");
+      return;
+    }
+
+    // Validate ingredient quantities
+    const invalidQuantities = selectedIngredients.filter((ing) => {
+      const qty = parseFloat(ing.quantity);
+      return isNaN(qty) || qty <= 0;
+    });
+    if (invalidQuantities.length > 0) {
+      setError("Please enter valid quantities for all ingredients");
+      return;
+    }
+
     mutate();
   };
 

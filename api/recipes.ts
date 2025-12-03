@@ -34,22 +34,56 @@ const createRecipe = async (
   formData.append("instructions", instructions);
   formData.append("cookingTime", cookingTime.toString());
   formData.append("categoryId", categoryId);
+
+  // Append ingredients as JSON string
   formData.append("ingredients", JSON.stringify(ingredients));
 
   if (image) {
+    // Extract filename from URI if possible
+    const filename = image.split("/").pop() || "image.jpg";
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : "image/jpeg";
+
     formData.append("image", {
-      name: "image.jpg",
       uri: image,
-      type: "image/jpeg",
+      name: filename,
+      type: type,
     } as any);
   }
 
-  const { data } = await instance.post("/recipes", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
+  console.log("Creating recipe with data:", {
+    title,
+    instructions: instructions.substring(0, 50) + "...",
+    cookingTime,
+    categoryId,
+    ingredientsCount: ingredients.length,
+    ingredients: ingredients,
+    hasImage: !!image,
   });
-  return data;
+
+  // Validate required fields
+  if (!title || !instructions || !categoryId) {
+    throw new Error(
+      "Missing required fields: title, instructions, or categoryId"
+    );
+  }
+  if (!ingredients || ingredients.length === 0) {
+    throw new Error("At least one ingredient is required");
+  }
+  if (cookingTime <= 0) {
+    throw new Error("Cooking time must be greater than 0");
+  }
+
+  try {
+    // Don't set Content-Type header - let axios set it automatically with boundary
+    const { data } = await instance.post("/recipes", formData);
+    return data;
+  } catch (error: any) {
+    console.error("Recipe creation API error:", error);
+    console.error("Error response:", error?.response?.data);
+    console.error("Error status:", error?.response?.status);
+    throw error;
+  }
 };
 
 const updateRecipe = async (
