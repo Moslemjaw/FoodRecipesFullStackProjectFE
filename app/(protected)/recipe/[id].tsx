@@ -19,10 +19,15 @@ import User from "@/types/User";
 import Ingredient from "@/types/Ingredient";
 
 export default function RecipeDetails() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [isFavorite, setIsFavorite] = useState(false);
+
+  // Get ID from route params (works with both /recipe/[id] and ?id=)
+  const id = params.id || (params as any).id;
+
+  console.log("Recipe Details - ID:", id, "Params:", params);
 
   const {
     data: recipe,
@@ -30,7 +35,13 @@ export default function RecipeDetails() {
     error,
   } = useQuery({
     queryKey: ["recipe", id],
-    queryFn: () => getRecipeById(id!),
+    queryFn: () => {
+      if (!id) {
+        throw new Error("Recipe ID is required");
+      }
+      console.log("Fetching recipe with ID:", id);
+      return getRecipeById(id);
+    },
     enabled: !!id,
   });
 
@@ -89,11 +100,31 @@ export default function RecipeDetails() {
     );
   }
 
+  if (!id) {
+    return (
+      <View style={styles.errorContainer}>
+        <Ionicons name="alert-circle-outline" size={64} color="#EF4444" />
+        <Text style={styles.errorText}>Recipe ID is missing</Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.retryButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   if (error || !recipe) {
     return (
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle-outline" size={64} color="#EF4444" />
-        <Text style={styles.errorText}>Failed to load recipe</Text>
+        <Text style={styles.errorText}>
+          {error ? "Failed to load recipe" : "Recipe not found"}
+        </Text>
+        <Text style={styles.errorSubtext}>
+          {error instanceof Error ? error.message : "Please try again later"}
+        </Text>
         <TouchableOpacity
           style={styles.retryButton}
           onPress={() => router.back()}
@@ -250,6 +281,12 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#EF4444",
     marginTop: 16,
+    textAlign: "center",
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginTop: 8,
     textAlign: "center",
   },
   retryButton: {
