@@ -8,7 +8,6 @@ import {
   Platform,
   ScrollView,
   Image,
-  Alert,
 } from "react-native";
 import React, { useContext, useState } from "react";
 import { useRouter } from "expo-router";
@@ -26,72 +25,29 @@ export default function Register() {
   const router = useRouter();
   const { setIsAutheticated } = useContext(AuthContext);
 
-  const { mutate, isPending, error } = useMutation({
+  const { mutate, isPending } = useMutation({
     mutationKey: ["register"],
     mutationFn: () => register({ email, password }, image || "", name),
     onSuccess: async (data) => {
-      console.log("Registration success, data:", data);
-      if (data?.token) {
-        await storeToken(data.token);
-        console.log("Token stored, setting authenticated to true");
-        setIsAutheticated(true);
-        // Small delay to ensure state is updated
-        setTimeout(() => {
-          console.log("Navigating to protected route");
-          router.replace("/(protected)/(tabs)" as any);
-        }, 100);
-      } else {
-        console.log("No token in response:", data);
-        Alert.alert("Error", "Invalid response from server");
-      }
-    },
-    onError: (error: any) => {
-      console.error("Registration error:", error);
-      const errorMessage =
-        error?.response?.data?.message ||
-        error?.message ||
-        "Registration failed. Please check your information and try again.";
-      Alert.alert("Registration Error", errorMessage);
+      await storeToken(data.token);
+      setIsAutheticated(true);
+      router.replace("/(protected)/(tabs)/index" as any);
     },
   });
 
   const handleRegistration = () => {
-    if (!name.trim()) {
-      Alert.alert("Validation Error", "Please enter your full name");
-      return;
+    if (email && password && name) {
+      mutate();
     }
-    if (!email.trim()) {
-      Alert.alert("Validation Error", "Please enter your email");
-      return;
-    }
-    if (!password.trim()) {
-      Alert.alert("Validation Error", "Please enter your password");
-      return;
-    }
-    if (password.length < 6) {
-      Alert.alert("Validation Error", "Password must be at least 6 characters");
-      return;
-    }
-    mutate();
   };
 
   const pickImage = async () => {
-    // Request permissions first
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert(
-        "Permission Required",
-        "We need access to your photo library to select a profile picture."
-      );
-      return;
-    }
-
     // No permissions request is necessary for launching the image library
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images", "videos"],
       allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
+      aspect: [4, 3],
+      quality: 1,
     });
 
     if (!result.canceled) {
@@ -129,15 +85,6 @@ export default function Register() {
           </View>
 
           <View style={styles.form}>
-            {error && (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>
-                  {error?.response?.data?.message ||
-                    error?.message ||
-                    "Registration failed. Please try again."}
-                </Text>
-              </View>
-            )}
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Full Name</Text>
               <TextInput
@@ -194,7 +141,7 @@ export default function Register() {
 
             <TouchableOpacity
               style={styles.loginLink}
-              onPress={() => router.navigate("/(auth)/login")}
+              onPress={() => router.navigate("/")}
             >
               <Text style={styles.loginLinkText}>
                 Already have an account? Sign in
@@ -336,18 +283,5 @@ const styles = StyleSheet.create({
     color: "#3B82F6",
     fontSize: 14,
     fontWeight: "500",
-  },
-  errorContainer: {
-    backgroundColor: "#FEE2E2",
-    borderWidth: 1,
-    borderColor: "#EF4444",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 20,
-  },
-  errorText: {
-    color: "#DC2626",
-    fontSize: 14,
-    textAlign: "center",
   },
 });

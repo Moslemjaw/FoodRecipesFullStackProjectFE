@@ -6,7 +6,7 @@ export default function AuthLayout() {
   const { isAutheticated } = useContext(AuthContext);
 
   if (isAutheticated) {
-    return <Redirect href="/(protected)/(tabs)/(home)" />;
+    return <Redirect href={"/(protected)/(tabs)/(home)" as any} />;
   }
 
   return (

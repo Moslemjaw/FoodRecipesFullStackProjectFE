@@ -35,7 +35,7 @@ export default function Index() {
         // Small delay to ensure state is updated
         setTimeout(() => {
           console.log("Navigating to protected route");
-          router.replace("/(protected)/(tabs)" as any);
+          router.replace("/(protected)/(tabs)/(home)/index" as any);
         }, 100);
       } else {
         console.log("No token in response:", data);
