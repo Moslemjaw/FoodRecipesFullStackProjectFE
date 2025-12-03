@@ -21,6 +21,14 @@ const getRecipesByCategory = async (categoryId: string): Promise<Recipe[]> => {
   return data;
 };
 
+const getRecipesByUserId = async (userId: string): Promise<Recipe[]> => {
+  const recipes = await getAllRecipes();
+  return recipes.filter((recipe: any) => {
+    const recipeUserId = recipe.userId?._id || recipe.userId;
+    return recipeUserId === userId;
+  });
+};
+
 const createRecipe = async (
   title: string,
   instructions: string,
@@ -125,19 +133,25 @@ const deleteRecipe = async (id: string): Promise<void> => {
 const filterByIngredients = async (
   ingredientIds: string[]
 ): Promise<Recipe[]> => {
-  const { data } = await instance.post("/recipes/filter-by-ingredients", {
-    ingredientIds,
+  const recipes = await getAllRecipes();
+  return recipes.filter((recipe: any) => {
+    const recipeIngredientIds = recipe.ingredients.map((i: any) =>
+      i.ingredientId?._id || i.ingredientId
+    );
+    return ingredientIds.some((id) => recipeIngredientIds.includes(id));
   });
-  return data;
 };
 
 const filterOutIngredients = async (
   ingredientIds: string[]
 ): Promise<Recipe[]> => {
-  const { data } = await instance.post("/recipes/filter-out-ingredients", {
-    ingredientIds,
+  const recipes = await getAllRecipes();
+  return recipes.filter((recipe: any) => {
+    const recipeIngredientIds = recipe.ingredients.map((i: any) =>
+      i.ingredientId?._id || i.ingredientId
+    );
+    return !ingredientIds.some((id) => recipeIngredientIds.includes(id));
   });
-  return data;
 };
 
 export {
@@ -149,5 +163,6 @@ export {
   getMyRecipes,
   getRecipeById,
   getRecipesByCategory,
+  getRecipesByUserId,
   updateRecipe,
 };

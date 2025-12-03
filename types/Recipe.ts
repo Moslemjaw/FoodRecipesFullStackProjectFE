@@ -12,7 +12,7 @@ interface RecipeIngredient {
 interface Recipe {
   _id: string;
   title: string;
-  instructions: string;
+  instructions: string[] | string;
   image?: string;
   cookingTime?: number;
   userId: User | string;

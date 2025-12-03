@@ -18,8 +18,12 @@ const removeFavorite = async (recipeID: string): Promise<void> => {
 const checkFavorite = async (
   recipeID: string
 ): Promise<{ isFavorited: boolean }> => {
-  const { data } = await instance.get(`/favorites/check/${recipeID}`);
-  return data;
+  const favorites = await getMyFavorites();
+  const isFavorited = favorites.some((fav: any) => {
+    const favRecipeId = fav.recipeID?._id || fav.recipeID;
+    return favRecipeId === recipeID;
+  });
+  return { isFavorited };
 };
 
 export { addFavorite, checkFavorite, getMyFavorites, removeFavorite };

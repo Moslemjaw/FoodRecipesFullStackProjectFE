@@ -1,5 +1,7 @@
 import UserInfo from "@/types/UserInfo";
+import { jwtDecode } from "jwt-decode";
 import instance from ".";
+import { getToken } from "./storage";
 
 const login = async (userInfo: UserInfo) => {
   const { data } = await instance.post("/users/login", userInfo);
@@ -29,13 +31,22 @@ const register = async (userInfo: UserInfo, image: string, name: string) => {
 };
 
 const me = async () => {
-  const { data } = await instance.get("/auth/me");
-  return data;
+  const token = await getToken();
+  if (token) {
+    const decoded: any = jwtDecode(token);
+    const { data } = await instance.get(`/users/${decoded.id}`);
+    return data;
+  }
 };
 
 const getAllUsers = async () => {
-  const { data } = await instance.get("/auth/users");
+  const { data } = await instance.get("/users");
   return data;
 };
 
-export { getAllUsers, login, me, register };
+const getUserById = async (userId: string) => {
+  const { data } = await instance.get(`/users/${userId}`);
+  return data;
+};
+
+export { getAllUsers, getUserById, login, me, register };

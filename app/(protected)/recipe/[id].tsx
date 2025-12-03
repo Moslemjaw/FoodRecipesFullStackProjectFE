@@ -88,7 +88,7 @@ export default function RecipeDetails() {
   const handleUserPress = (userId: string | User) => {
     const userID = typeof userId === "string" ? userId : userId._id;
     if (userID) {
-      router.push(`/(protected)/(tabs)/(home)/${userID}` as any);
+      router.push(`/(protected)/user/${userID}` as any);
     }
   };
 
@@ -224,6 +224,7 @@ export default function RecipeDetails() {
         <TouchableOpacity
           style={styles.userSection}
           onPress={() => handleUserPress(recipe.userId)}
+          activeOpacity={0.7}
         >
           {userImageUrl ? (
             <Image
@@ -246,6 +247,7 @@ export default function RecipeDetails() {
             <Text style={styles.userLabel}>Created by</Text>
             <Text style={styles.userName}>{userName}</Text>
           </View>
+          <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
         </TouchableOpacity>
 
         {/* Ingredients Section */}
@@ -276,7 +278,11 @@ export default function RecipeDetails() {
         {/* Instructions Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Instructions</Text>
-          <Text style={styles.instructionsText}>{recipe.instructions}</Text>
+          <Text style={styles.instructionsText}>
+            {Array.isArray(recipe.instructions)
+              ? recipe.instructions.join("\n\n")
+              : recipe.instructions}
+          </Text>
         </View>
       </View>
     </ScrollView>
@@ -419,6 +425,8 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     marginBottom: 24,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
   userAvatar: {
     width: 48,
@@ -437,6 +445,7 @@ const styles = StyleSheet.create({
   },
   userInfo: {
     flex: 1,
+    marginRight: 8,
   },
   userLabel: {
     fontSize: 12,

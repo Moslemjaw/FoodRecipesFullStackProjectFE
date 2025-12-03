@@ -10,34 +10,38 @@ import {
   ScrollView,
 } from "react-native";
 import React, { useContext } from "react";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import AuthContext from "@/context/AuthContext";
-import { deleteToken } from "@/api/storage";
-import { me } from "@/api/auth";
+import { getUserById } from "@/api/auth";
+import { getRecipesByUserId } from "@/api/recipes";
 import { getFollowing } from "@/api/follows";
-import { getMyRecipes } from "@/api/recipes";
 import { getImageUrl } from "@/utils/imageUtils";
 import User from "@/types/User";
 import Recipe from "@/types/Recipe";
 
-export default function Profile() {
-  const { setIsAutheticated } = useContext(AuthContext);
+export default function UserProfile() {
+  const params = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { isAutheticated } = useContext(AuthContext);
+  const userId = params.id;
 
   const { data: user, isLoading: isLoadingUser } = useQuery({
-    queryKey: ["user"],
-    queryFn: me,
-    staleTime: 5 * 60 * 1000, // 5 minutes - user data doesn't change often
-    gcTime: 10 * 60 * 1000, // 10 minutes cache time
+    queryKey: ["user", userId],
+    queryFn: () => {
+      if (!userId) {
+        throw new Error("User ID is required");
+      }
+      return getUserById(userId);
+    },
+    enabled: !!userId,
   });
 
   const { data: following = [], isLoading: isLoadingFollowing } = useQuery({
-    queryKey: ["following"],
+    queryKey: ["following", userId],
     queryFn: getFollowing,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 5 * 60 * 1000,
+    enabled: !!userId,
   });
 
   const {
@@ -46,16 +50,15 @@ export default function Profile() {
     refetch: refetchRecipes,
     isRefetching: isRefetchingRecipes,
   } = useQuery({
-    queryKey: ["myRecipes"],
-    queryFn: getMyRecipes,
-    staleTime: 1 * 60 * 1000, // 1 minute
-    gcTime: 5 * 60 * 1000,
+    queryKey: ["userRecipes", userId],
+    queryFn: () => {
+      if (!userId) {
+        throw new Error("User ID is required");
+      }
+      return getRecipesByUserId(userId);
+    },
+    enabled: !!userId,
   });
-
-  const handleLogout = async () => {
-    await deleteToken();
-    setIsAutheticated(false);
-  };
 
   const handleRecipePress = (recipeId: string) => {
     router.push(`/(protected)/recipe/${recipeId}` as any);
@@ -104,11 +107,22 @@ export default function Profile() {
     );
   };
 
-  const userData = user as User | undefined;
-  const followingCount = following.length;
+  if (!userId) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Ionicons name="alert-circle-outline" size={64} color="#EF4444" />
+        <Text style={styles.errorText}>User ID is missing</Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.retryButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
-  // Show loading only if we have no cached data at all
-  if (isLoadingUser && !user) {
+  if (isLoadingUser || isLoadingFollowing) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#3B82F6" />
@@ -117,8 +131,34 @@ export default function Profile() {
     );
   }
 
+  if (!user) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Ionicons name="alert-circle-outline" size={64} color="#EF4444" />
+        <Text style={styles.errorText}>User not found</Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.retryButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const userData = user as User;
+  const followingCount = following.length;
+
   return (
     <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#111827" />
+        </TouchableOpacity>
+      </View>
       <ScrollView
         style={styles.scrollView}
         refreshControl={
@@ -149,22 +189,14 @@ export default function Profile() {
 
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
-              {isLoadingRecipes ? (
-                <ActivityIndicator size="small" color="#3B82F6" />
-              ) : (
-                <Text style={styles.statNumber}>{recipes.length}</Text>
-              )}
+              <Text style={styles.statNumber}>{recipes.length}</Text>
               <Text style={styles.statLabel}>
                 {recipes.length === 1 ? "Recipe" : "Recipes"}
               </Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              {isLoadingFollowing ? (
-                <ActivityIndicator size="small" color="#3B82F6" />
-              ) : (
-                <Text style={styles.statNumber}>{followingCount}</Text>
-              )}
+              <Text style={styles.statNumber}>{followingCount}</Text>
               <Text style={styles.statLabel}>
                 {followingCount === 1 ? "Following" : "Following"}
               </Text>
@@ -174,7 +206,7 @@ export default function Profile() {
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>My Recipes</Text>
+            <Text style={styles.sectionTitle}>Recipes</Text>
             <Text style={styles.sectionSubtitle}>
               {recipes.length} {recipes.length === 1 ? "recipe" : "recipes"}
             </Text>
@@ -199,24 +231,10 @@ export default function Profile() {
               <Ionicons name="restaurant-outline" size={64} color="#D1D5DB" />
               <Text style={styles.emptyText}>No recipes yet</Text>
               <Text style={styles.emptySubtext}>
-                Start creating your first recipe!
+                This user hasn't created any recipes yet.
               </Text>
-              <TouchableOpacity
-                style={styles.createButton}
-                onPress={() =>
-                  router.push("/(protected)/(tabs)/create" as any)
-                }
-              >
-                <Text style={styles.createButtonText}>Create Recipe</Text>
-              </TouchableOpacity>
             </View>
           )}
-        </View>
-
-        <View style={styles.section}>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutButtonText}>Logout</Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
@@ -231,21 +249,67 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  header: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    padding: 16,
+    paddingTop: 48,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#F9FAFB",
+    padding: 32,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
     color: "#6B7280",
   },
+  errorText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#EF4444",
+    marginTop: 16,
+    textAlign: "center",
+  },
+  retryButton: {
+    marginTop: 24,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: "#3B82F6",
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
   profileHeader: {
     alignItems: "center",
     paddingVertical: 32,
     paddingHorizontal: 20,
+    paddingTop: 80,
     backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
@@ -406,38 +470,6 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     marginTop: 8,
     textAlign: "center",
-    marginBottom: 24,
-  },
-  createButton: {
-    backgroundColor: "#3B82F6",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  createButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  logoutButton: {
-    backgroundColor: "#EF4444",
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: "center",
-    marginTop: 8,
-    marginBottom: 24,
-    shadowColor: "#EF4444",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  logoutButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
   },
 });
+
