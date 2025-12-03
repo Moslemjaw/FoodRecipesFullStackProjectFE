@@ -38,4 +38,4 @@ const getAllUsers = async () => {
   return data;
 };
 
-export { login, register, me, getAllUsers };
+export { getAllUsers, login, me, register };
