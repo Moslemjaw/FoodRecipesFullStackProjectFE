@@ -14,6 +14,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { getMyFavorites, removeFavorite } from "@/api/favorites";
+import { getImageUrl } from "@/utils/imageUtils";
 import Recipe from "@/types/Recipe";
 import Favorite from "@/types/Favorite";
 
@@ -92,8 +93,18 @@ export default function Favorites() {
         onPress={() => handleRecipePress(item._id)}
         activeOpacity={0.8}
       >
-        {item.image ? (
-          <Image source={{ uri: item.image }} style={styles.recipeImage} />
+        {getImageUrl(item.image) ? (
+          <Image
+            source={{ uri: getImageUrl(item.image)! }}
+            style={styles.recipeImage}
+            onError={(error) => {
+              console.error(
+                `Favorite image load error:`,
+                error.nativeEvent.error
+              );
+              console.error(`Failed URL:`, getImageUrl(item.image));
+            }}
+          />
         ) : (
           <View style={styles.recipeImagePlaceholder}>
             <Ionicons name="restaurant-outline" size={40} color="#9CA3AF" />

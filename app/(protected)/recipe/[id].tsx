@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { getRecipeById } from "@/api/recipes";
 import { addFavorite, removeFavorite, checkFavorite } from "@/api/favorites";
+import { getImageUrl } from "@/utils/imageUtils";
 import Recipe, { RecipeIngredient } from "@/types/Recipe";
 import User from "@/types/User";
 import Ingredient from "@/types/Ingredient";
@@ -150,11 +151,30 @@ export default function RecipeDetails() {
       ? recipe.userId.image
       : undefined;
 
+  const recipeImageUrl = getImageUrl(recipe.image);
+  const userImageUrl = getImageUrl(userImage);
+
+  // Debug logging
+  if (recipe.image) {
+    console.log(`Recipe Details - Original image:`, recipe.image);
+    console.log(`Recipe Details - Processed image URL:`, recipeImageUrl);
+  }
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Recipe Image */}
-      {recipe.image ? (
-        <Image source={{ uri: recipe.image }} style={styles.recipeImage} />
+      {recipeImageUrl ? (
+        <Image
+          source={{ uri: recipeImageUrl }}
+          style={styles.recipeImage}
+          onError={(error) => {
+            console.error(`Recipe image load error:`, error.nativeEvent.error);
+            console.error(`Failed URL:`, recipeImageUrl);
+          }}
+          onLoad={() => {
+            console.log(`Recipe image loaded successfully`);
+          }}
+        />
       ) : (
         <View style={styles.recipeImagePlaceholder}>
           <Ionicons name="restaurant-outline" size={64} color="#9CA3AF" />
@@ -205,8 +225,18 @@ export default function RecipeDetails() {
           style={styles.userSection}
           onPress={() => handleUserPress(recipe.userId)}
         >
-          {userImage ? (
-            <Image source={{ uri: userImage }} style={styles.userAvatar} />
+          {userImageUrl ? (
+            <Image
+              source={{ uri: userImageUrl }}
+              style={styles.userAvatar}
+              onError={(error) => {
+                console.error(
+                  `User image load error:`,
+                  error.nativeEvent.error
+                );
+                console.error(`Failed URL:`, userImageUrl);
+              }}
+            />
           ) : (
             <View style={styles.userAvatarPlaceholder}>
               <Ionicons name="person-outline" size={20} color="#9CA3AF" />

@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { getAllRecipes } from "@/api/recipes";
 import { getAllCategories } from "@/api/categories";
+import { getImageUrl } from "@/utils/imageUtils";
 import Recipe from "@/types/Recipe";
 import Category from "@/types/Category";
 
@@ -30,7 +31,19 @@ export default function Explore() {
     isRefetching,
   } = useQuery({
     queryKey: ["recipes"],
-    queryFn: getAllRecipes,
+    queryFn: async () => {
+      const data = await getAllRecipes();
+      console.log("Fetched recipes:", data.length);
+      // Log first recipe's image to debug
+      if (data.length > 0) {
+        console.log("First recipe image field:", data[0].image);
+        console.log(
+          "First recipe full data:",
+          JSON.stringify(data[0], null, 2)
+        );
+      }
+      return data;
+    },
   });
 
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
@@ -72,14 +85,37 @@ export default function Explore() {
         ? item.categoryId.name
         : "Uncategorized";
 
+    const imageUrl = getImageUrl(item.image);
+
+    // Debug logging
+    if (item.image) {
+      console.log(`Recipe "${item.title}" - Original image:`, item.image);
+      console.log(`Recipe "${item.title}" - Processed image URL:`, imageUrl);
+    }
+
     return (
       <TouchableOpacity
         style={styles.recipeCard}
         onPress={() => handleRecipePress(item._id)}
         activeOpacity={0.8}
       >
-        {item.image ? (
-          <Image source={{ uri: item.image }} style={styles.recipeImage} />
+        {imageUrl ? (
+          <Image
+            source={{ uri: imageUrl }}
+            style={styles.recipeImage}
+            onError={(error) => {
+              console.error(
+                `Image load error for recipe "${item.title}":`,
+                error.nativeEvent.error
+              );
+              console.error(`Failed URL:`, imageUrl);
+            }}
+            onLoad={() => {
+              console.log(
+                `Image loaded successfully for recipe "${item.title}"`
+              );
+            }}
+          />
         ) : (
           <View style={styles.recipeImagePlaceholder}>
             <Ionicons name="restaurant-outline" size={40} color="#9CA3AF" />
