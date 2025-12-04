@@ -1,14 +1,15 @@
-import { StyleSheet, Text, View, TouchableOpacity, Alert } from "react-native";
-import React, { useContext } from "react";
-import { useRouter } from "expo-router";
-import AuthContext from "@/context/AuthContext";
 import { deleteToken } from "@/api/storage";
+import AuthContext from "@/context/AuthContext";
+import { useRouter } from "expo-router";
+import React, { useContext } from "react";
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function Profile() {
   const { setIsAutheticated } = useContext(AuthContext);
   const router = useRouter();
 
   const handleLogout = () => {
+    console.log("handleLogout called - showing alert");
     Alert.alert("Logout", "Are you sure you want to logout?", [
       {
         text: "Cancel",
@@ -18,8 +19,11 @@ export default function Profile() {
         text: "Logout",
         style: "destructive",
         onPress: async () => {
+          console.log("Logout pressed - deleting token...");
           await deleteToken();
+          console.log("Token deleted - setting auth to false...");
           setIsAutheticated(false);
+          console.log("Auth set to false");
           router.replace("/(auth)/login" as any);
         },
       },

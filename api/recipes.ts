@@ -34,54 +34,40 @@ const createRecipe = async (
   formData.append("instructions", instructions);
   formData.append("cookingTime", cookingTime.toString());
   formData.append("categoryId", categoryId);
-
-  // Append ingredients as JSON string
   formData.append("ingredients", JSON.stringify(ingredients));
 
   if (image) {
-    // Extract filename from URI if possible
-    const filename = image.split("/").pop() || "image.jpg";
-    const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : "image/jpeg";
+    console.log("Processing image:", image);
 
-    formData.append("image", {
-      uri: image,
-      name: filename,
-      type: type,
-    } as any);
-  }
+    // For web: blob: URLs need to be fetched and converted
+    if (image.startsWith("blob:") || image.startsWith("data:")) {
+      try {
+        const response = await fetch(image);
+        const blob = await response.blob();
+        formData.append("image", blob, "recipe-image.jpg");
+        console.log("Blob image appended, size:", blob.size);
+      } catch (err) {
+        console.error("Error converting blob:", err);
+      }
+    } else {
+      // For mobile: use uri/name/type object
+      const filename = image.split("/").pop() || "image.jpg";
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : "image/jpeg";
 
-  console.log("Creating recipe with data:", {
-    title,
-    instructions: instructions.substring(0, 50) + "...",
-    cookingTime,
-    categoryId,
-    ingredientsCount: ingredients.length,
-    ingredients: ingredients,
-    hasImage: !!image,
-  });
-
-  // Validate required fields
-  if (!title || !instructions || !categoryId) {
-    throw new Error(
-      "Missing required fields: title, instructions, or categoryId"
-    );
-  }
-  if (!ingredients || ingredients.length === 0) {
-    throw new Error("At least one ingredient is required");
-  }
-  if (cookingTime <= 0) {
-    throw new Error("Cooking time must be greater than 0");
+      formData.append("image", {
+        uri: image,
+        name: filename,
+        type: type,
+      } as any);
+    }
   }
 
   try {
-    // Don't set Content-Type header - let axios set it automatically with boundary
     const { data } = await instance.post("/recipes", formData);
     return data;
   } catch (error: any) {
     console.error("Recipe creation API error:", error);
-    console.error("Error response:", error?.response?.data);
-    console.error("Error status:", error?.response?.status);
     throw error;
   }
 };
@@ -103,19 +89,39 @@ const updateRecipe = async (
   formData.append("ingredients", JSON.stringify(ingredients));
 
   if (image) {
-    formData.append("image", {
-      name: "image.jpg",
-      uri: image,
-      type: "image/jpeg",
-    } as any);
+    console.log("Processing image for update:", image);
+
+    // For web: blob: URLs need to be fetched and converted
+    if (image.startsWith("blob:") || image.startsWith("data:")) {
+      try {
+        const response = await fetch(image);
+        const blob = await response.blob();
+        formData.append("image", blob, "recipe-image.jpg");
+        console.log("Blob image appended, size:", blob.size);
+      } catch (err) {
+        console.error("Error converting blob:", err);
+      }
+    } else {
+      // For mobile: use uri/name/type object
+      const filename = image.split("/").pop() || "image.jpg";
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : "image/jpeg";
+
+      formData.append("image", {
+        uri: image,
+        name: filename,
+        type: type,
+      } as any);
+    }
   }
 
-  const { data } = await instance.put(`/recipes/${id}`, formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-  });
-  return data;
+  try {
+    const { data } = await instance.put(`/recipes/${id}`, formData);
+    return data;
+  } catch (error: any) {
+    console.error("Recipe update API error:", error);
+    throw error;
+  }
 };
 
 const deleteRecipe = async (id: string): Promise<void> => {
