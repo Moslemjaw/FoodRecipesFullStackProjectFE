@@ -46,11 +46,24 @@ const Home = () => {
   const categoryData = categories?.map((category) => {
     const categoryRecipes =
       recipes?.filter((recipe) => {
-        const recipeCatId =
-          typeof recipe.categoryId === "object"
-            ? recipe.categoryId?._id
-            : recipe.categoryId;
-        return recipeCatId === category._id;
+        // Check if recipe has this category
+        const rCat = recipe.categoryId;
+
+        // Handle array case (Backend.md says categoryId: Category[])
+        if (Array.isArray(rCat)) {
+          return rCat.some((c) => {
+            const cId = typeof c === "object" ? c._id : c;
+            return cId === category._id;
+          });
+        }
+
+        // Handle single object/string case (legacy/current behavior fallback)
+        const cId =
+          typeof rCat === "object"
+            ? (rCat as any)?._id || (rCat as any)?.id
+            : rCat;
+
+        return cId === category._id;
       }) || [];
 
     return {

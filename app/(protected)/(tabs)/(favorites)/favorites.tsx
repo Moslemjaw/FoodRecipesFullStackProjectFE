@@ -1,22 +1,23 @@
+import { getMyFavorites, removeFavorite } from "@/api/favorites";
+import Favorite from "@/types/Favorite";
+import Recipe from "@/types/Recipe";
+import { getImageUrl } from "@/utils/imageUtils";
+import { Ionicons } from "@expo/vector-icons";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import React, { useMemo } from "react";
 import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  Platform,
+  RefreshControl,
   StyleSheet,
   Text,
-  View,
-  FlatList,
   TouchableOpacity,
-  Image,
-  ActivityIndicator,
-  RefreshControl,
-  Alert,
+  View,
 } from "react-native";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { getMyFavorites, removeFavorite } from "@/api/favorites";
-import { getImageUrl } from "@/utils/imageUtils";
-import Recipe from "@/types/Recipe";
-import Favorite from "@/types/Favorite";
 
 export default function Favorites() {
   const router = useRouter();
@@ -33,16 +34,61 @@ export default function Favorites() {
   });
 
   const removeFavoriteMutation = useMutation({
-    mutationFn: (recipeID: string) => removeFavorite(recipeID),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["favorites"] });
-      queryClient.invalidateQueries({ queryKey: ["favorite"] });
+    mutationFn: async (recipeID: string) => {
+      console.log(
+        "mutationFn called - Removing favorite for recipe:",
+        recipeID
+      );
+      console.log("Calling removeFavorite API with recipeID:", recipeID);
+      try {
+        await removeFavorite(recipeID);
+        console.log("removeFavorite API call completed successfully");
+      } catch (error) {
+        console.error("Error in removeFavorite API call:", error);
+        throw error;
+      }
     },
-    onError: (error: any) => {
+    onMutate: async (recipeID: string) => {
+      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+      await queryClient.cancelQueries({ queryKey: ["favorites"] });
+
+      // Snapshot the previous value
+      const previousFavorites = queryClient.getQueryData<Favorite[]>([
+        "favorites",
+      ]);
+
+      // Optimistically update to remove the favorite immediately
+      if (previousFavorites) {
+        queryClient.setQueryData<Favorite[]>(["favorites"], (old) => {
+          if (!old) return old;
+          return old.filter((fav: Favorite) => {
+            const favRecipeId =
+              typeof fav.recipeID === "object" && fav.recipeID
+                ? (fav.recipeID as any)._id
+                : fav.recipeID;
+            return favRecipeId !== recipeID;
+          });
+        });
+      }
+
+      // Return a context object with the snapshotted value
+      return { previousFavorites };
+    },
+    onError: (error: any, recipeID: string, context: any) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousFavorites) {
+        queryClient.setQueryData(["favorites"], context.previousFavorites);
+      }
+      console.error("Remove favorite error:", error);
       Alert.alert(
         "Error",
         error?.response?.data?.message || "Failed to remove favorite"
       );
+    },
+    onSuccess: () => {
+      // Invalidate and refetch to ensure we have the latest data
+      queryClient.invalidateQueries({ queryKey: ["favorites"] });
+      queryClient.invalidateQueries({ queryKey: ["favorite"] });
     },
   });
 
@@ -62,29 +108,61 @@ export default function Favorites() {
   };
 
   const handleRemoveFavorite = (recipeId: string, recipeTitle: string) => {
-    Alert.alert(
-      "Remove Favorite",
-      `Are you sure you want to remove "${recipeTitle}" from your favorites?`,
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
+    console.log("handleRemoveFavorite called with:", { recipeId, recipeTitle });
+
+    const confirmRemoval = () => {
+      console.log("User confirmed removal of recipe:", recipeId);
+      console.log("Calling removeFavoriteMutation.mutate with:", recipeId);
+      removeFavoriteMutation.mutate(recipeId, {
+        onSuccess: () => {
+          console.log("Mutation succeeded!");
         },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: () => {
-            removeFavoriteMutation.mutate(recipeId);
+        onError: (error) => {
+          console.log("Mutation error:", error);
+        },
+      });
+    };
+
+    // Alert.alert doesn't work reliably on web, so use window.confirm for web
+    if (Platform.OS === "web") {
+      const confirmed = window.confirm(
+        `Are you sure you want to remove "${recipeTitle}" from your favorites?`
+      );
+      if (confirmed) {
+        confirmRemoval();
+      } else {
+        console.log("User cancelled removal (web)");
+      }
+    } else {
+      // Use Alert.alert for native platforms
+      Alert.alert(
+        "Remove Favorite",
+        `Are you sure you want to remove "${recipeTitle}" from your favorites?`,
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => {
+              console.log("User cancelled removal");
+            },
           },
-        },
-      ]
-    );
+          {
+            text: "Remove",
+            style: "destructive",
+            onPress: confirmRemoval,
+          },
+        ],
+        { cancelable: true }
+      );
+    }
   };
 
   const renderRecipeCard = ({ item }: { item: Recipe }) => {
     const categoryName =
-      typeof item.categoryId === "object" && item.categoryId
-        ? item.categoryId.name
+      item.categoryId && typeof item.categoryId === "object"
+        ? Array.isArray(item.categoryId)
+          ? item.categoryId[0]?.name || "Uncategorized"
+          : (item.categoryId as any).name || "Uncategorized"
         : "Uncategorized";
 
     return (
@@ -114,11 +192,23 @@ export default function Favorites() {
           style={styles.favoriteButton}
           onPress={(e) => {
             e.stopPropagation();
+            e.preventDefault();
+            console.log(
+              "Heart button pressed for recipe:",
+              item._id,
+              item.title
+            );
+            console.log("Calling handleRemoveFavorite...");
             handleRemoveFavorite(item._id, item.title);
+            console.log("handleRemoveFavorite call completed");
           }}
           disabled={removeFavoriteMutation.isPending}
         >
-          <Ionicons name="heart" size={20} color="#EF4444" />
+          <Ionicons
+            name="heart"
+            size={20}
+            color={removeFavoriteMutation.isPending ? "#9CA3AF" : "#EF4444"}
+          />
         </TouchableOpacity>
         <View style={styles.recipeInfo}>
           <Text style={styles.recipeTitle} numberOfLines={2}>

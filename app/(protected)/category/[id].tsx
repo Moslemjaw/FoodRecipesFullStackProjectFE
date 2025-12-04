@@ -1,6 +1,7 @@
 import { getCategoryById } from "@/api/categories";
 import { getAllRecipes, getRecipesByCategory } from "@/api/recipes";
 import Recipe from "@/types/Recipe";
+import { getImageUrl } from "@/utils/imageUtils";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
@@ -41,8 +42,21 @@ const CategoryDetails = () => {
   const filteredRecipes = React.useMemo(() => {
     // Function to check if a recipe belongs to the current category
     const belongsToCategory = (r: Recipe) => {
+      const rCat = r.categoryId;
+
+      // Handle array case (Backend.md says categoryId: Category[])
+      if (Array.isArray(rCat)) {
+        return rCat.some((c) => {
+          const cId = typeof c === "object" ? c._id : c;
+          return cId === id;
+        });
+      }
+
+      // Handle single object/string case
       const catId =
-        typeof r.categoryId === "object" ? r.categoryId?._id : r.categoryId;
+        typeof rCat === "object"
+          ? (rCat as any)?._id || (rCat as any)?.id
+          : rCat;
       return catId === id;
     };
 
@@ -63,42 +77,48 @@ const CategoryDetails = () => {
     return [];
   }, [recipes, allRecipes, id]);
 
-  const renderRecipe = ({ item }: { item: Recipe }) => (
-    <TouchableOpacity
-      style={styles.recipeCard}
-      onPress={() => router.push(`/(protected)/recipe/${item._id}`)}
-      activeOpacity={0.9}
-    >
-      <View style={styles.imageContainer}>
-        {item.image ? (
-          <Image source={{ uri: item.image }} style={styles.recipeImage} />
-        ) : (
-          <View style={styles.placeholderImage}>
-            <Ionicons name="image-outline" size={40} color="#9CA3AF" />
-          </View>
-        )}
-        <View style={styles.timeBadge}>
-          <Ionicons name="time-outline" size={12} color="#111111" />
-          <Text style={styles.timeText}>{item.cookingTime || 20} min</Text>
+  const renderRecipe = ({ item }: { item: Recipe }) => {
+    const imageUrl = getImageUrl(item.image);
+    const categoryName =
+      typeof item.categoryId === "object" && item.categoryId
+        ? (item.categoryId as any).name || (item.categoryId as any)[0]?.name
+        : "Uncategorized";
+
+    return (
+      <TouchableOpacity
+        style={styles.recipeCard}
+        onPress={() => router.push(`/(protected)/recipe/${item._id}`)}
+        activeOpacity={0.9}
+      >
+        <View style={styles.imageContainer}>
+          {imageUrl ? (
+            <Image source={{ uri: imageUrl }} style={styles.recipeImage} />
+          ) : (
+            <View style={styles.placeholderImage}>
+              <Ionicons name="image-outline" size={40} color="#9CA3AF" />
+            </View>
+          )}
         </View>
-      </View>
-      <View style={styles.cardContent}>
-        <Text style={styles.recipeTitle} numberOfLines={2}>
-          {item.title}
-        </Text>
-        <View style={styles.metaRow}>
-          <View style={styles.metaItem}>
-            <Ionicons name="flame-outline" size={14} color="#FFD464" />
-            <Text style={styles.metaText}>Easy</Text>
-          </View>
-          <View style={styles.metaItem}>
-            <Ionicons name="people-outline" size={14} color="#42B8B2" />
-            <Text style={styles.metaText}>2 Servings</Text>
+        <View style={styles.cardContent}>
+          <Text style={styles.recipeTitle} numberOfLines={2}>
+            {item.title}
+          </Text>
+          <View style={styles.metaRow}>
+            {item.cookingTime && (
+              <View style={styles.metaItem}>
+                <Ionicons name="time-outline" size={14} color="#6B7280" />
+                <Text style={styles.metaText}>{item.cookingTime} min</Text>
+              </View>
+            )}
+            <View style={styles.metaItem}>
+              <Ionicons name="pricetag-outline" size={14} color="#6B7280" />
+              <Text style={styles.metaText}>{categoryName}</Text>
+            </View>
           </View>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -137,6 +157,8 @@ const CategoryDetails = () => {
           keyExtractor={(item) => item._id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          numColumns={2}
+          columnWrapperStyle={styles.row}
         />
       ) : (
         <View style={styles.emptyContainer}>
@@ -175,7 +197,11 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 10,
   },
+  row: {
+    justifyContent: "space-between",
+  },
   recipeCard: {
+    width: "48%", // Added to match explore card width
     backgroundColor: "#FFFFFF",
     borderRadius: 24,
     marginBottom: 20,
@@ -190,7 +216,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   imageContainer: {
-    height: 200,
+    height: 160, // Changed from 200 to match explore
     backgroundColor: "#E5E7EB",
     position: "relative",
   },
@@ -205,46 +231,31 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#F3F4F6",
   },
-  timeBadge: {
-    position: "absolute",
-    bottom: 12,
-    right: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  timeText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#111111",
-  },
+  // timeBadge styles removed as it's not in explore card style
   cardContent: {
-    padding: 20,
+    padding: 12, // Changed from 20 to match explore padding
   },
   recipeTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111111",
-    marginBottom: 12,
-    lineHeight: 26,
+    fontSize: 16, // Changed from 18 to match explore
+    fontWeight: "600", // Changed from 700 to match explore
+    color: "#111827",
+    marginBottom: 8, // Changed from 12
+    lineHeight: 20, // Adjusted
+    minHeight: 40, // Added minHeight for consistency
   },
   metaRow: {
     flexDirection: "row",
-    gap: 16,
+    gap: 12, // Changed from 16
+    flexWrap: "wrap", // Added flexWrap
   },
   metaItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 4, // Changed from 6
   },
   metaText: {
-    fontSize: 13,
+    fontSize: 12, // Changed from 13
     color: "#6B7280",
-    fontWeight: "500",
   },
   emptyContainer: {
     flex: 1,

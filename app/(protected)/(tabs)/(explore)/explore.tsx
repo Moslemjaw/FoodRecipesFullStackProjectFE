@@ -103,8 +103,10 @@ export default function Explore() {
 
   const renderRecipeCard = ({ item }: { item: Recipe }) => {
     const categoryName =
-      typeof item.categoryId === "object" && item.categoryId
-        ? item.categoryId.name
+      item.categoryId && typeof item.categoryId === "object"
+        ? Array.isArray(item.categoryId)
+          ? item.categoryId[0]?.name || "Uncategorized"
+          : (item.categoryId as any).name || "Uncategorized"
         : "Uncategorized";
 
     const imageUrl = getImageUrl(item.image);

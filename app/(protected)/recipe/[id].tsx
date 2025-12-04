@@ -1,29 +1,28 @@
-import React, { useState, useEffect } from "react";
+import { getCategoryById } from "@/api/categories";
+import { addFavorite, checkFavorite, removeFavorite } from "@/api/favorites";
+import { getRecipeById } from "@/api/recipes";
+import { RecipeIngredient } from "@/types/Recipe";
+import User from "@/types/User";
+import { getImageUrl } from "@/utils/imageUtils";
+import { Ionicons } from "@expo/vector-icons";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
-  StyleSheet,
-  Text,
-  View,
-  ScrollView,
-  Image,
-  TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Ionicons } from "@expo/vector-icons";
-import { useRouter, useLocalSearchParams } from "expo-router";
-import { getRecipeById } from "@/api/recipes";
-import { addFavorite, removeFavorite, checkFavorite } from "@/api/favorites";
-import { getImageUrl } from "@/utils/imageUtils";
-import Recipe, { RecipeIngredient } from "@/types/Recipe";
-import User from "@/types/User";
-import Ingredient from "@/types/Ingredient";
 
 export default function RecipeDetails() {
   const params = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [isFavorite, setIsFavorite] = useState(false);
 
   // Get ID from route params (works with both /recipe/[id] and ?id=)
   const id = params.id || (params as any).id;
@@ -46,32 +45,83 @@ export default function RecipeDetails() {
     enabled: !!id,
   });
 
-  const { data: favoriteStatus } = useQuery({
+  // Extract category ID handling potential array from backend
+  const recipeCategoryId = React.useMemo(() => {
+    if (!recipe?.categoryId) return null;
+
+    // Case 1: It's an array (as per Backend.md)
+    if (Array.isArray(recipe.categoryId)) {
+      if (recipe.categoryId.length === 0) return null;
+      const firstCat = recipe.categoryId[0];
+      return typeof firstCat === "object" ? firstCat._id : firstCat;
+    }
+
+    // Case 2: It's a single object
+    if (typeof recipe.categoryId === "object") {
+      return (recipe.categoryId as any)._id || (recipe.categoryId as any).id;
+    }
+
+    // Case 3: It's a string ID
+    return recipe.categoryId;
+  }, [recipe]);
+
+  const { data: category } = useQuery({
+    queryKey: ["category", recipeCategoryId],
+    queryFn: () => getCategoryById(recipeCategoryId as string),
+    enabled: !!recipeCategoryId,
+  });
+
+  // Check favorite status using the checkFavorite function
+  // This fetches all favorites and checks if current recipe is favorited
+  const { data: favoriteStatus, isLoading: isLoadingFavorite } = useQuery({
     queryKey: ["favorite", id],
     queryFn: () => checkFavorite(id!),
     enabled: !!id,
+    refetchOnMount: true, // Always check fresh status when component mounts
   });
 
+  // Local state for optimistic updates
+  const [isFavoriteState, setIsFavoriteState] = useState(false);
+
+  // Update state when favoriteStatus changes
   useEffect(() => {
-    if (favoriteStatus) {
-      setIsFavorite(favoriteStatus.isFavorited);
+    if (favoriteStatus !== undefined) {
+      setIsFavoriteState(favoriteStatus.isFavorited);
     }
   }, [favoriteStatus]);
 
   const favoriteMutation = useMutation({
     mutationFn: async (recipeId: string) => {
-      if (isFavorite) {
-        await removeFavorite(recipeId);
-      } else {
-        await addFavorite(recipeId);
+      const currentStatus = isFavoriteState;
+      const newStatus = !currentStatus;
+
+      // Optimistic update - update UI immediately
+      setIsFavoriteState(newStatus);
+
+      try {
+        if (currentStatus) {
+          // Currently favorited, so remove it
+          console.log("Removing favorite for recipe:", recipeId);
+          await removeFavorite(recipeId);
+        } else {
+          // Not favorited, so add it
+          console.log("Adding favorite for recipe:", recipeId);
+          await addFavorite(recipeId);
+        }
+      } catch (err) {
+        // Revert optimistic update on error
+        console.error("Favorite mutation failed, reverting:", err);
+        setIsFavoriteState(currentStatus);
+        throw err;
       }
     },
     onSuccess: () => {
-      setIsFavorite(!isFavorite);
+      // Invalidate queries to ensure all components have fresh data
       queryClient.invalidateQueries({ queryKey: ["favorite", id] });
       queryClient.invalidateQueries({ queryKey: ["favorites"] });
     },
     onError: (error: any) => {
+      console.error("Favorite mutation error:", error);
       Alert.alert(
         "Error",
         error?.response?.data?.message || "Failed to update favorite"
@@ -136,10 +186,31 @@ export default function RecipeDetails() {
     );
   }
 
-  const categoryName =
-    typeof recipe.categoryId === "object" && recipe.categoryId
-      ? recipe.categoryId.name
-      : "Uncategorized";
+  const getCategoryName = () => {
+    // 1. Try separate category query result
+    if (category?.name) return category.name;
+
+    // 2. Try populated category on recipe
+    if (
+      recipe.categoryId &&
+      typeof recipe.categoryId === "object" &&
+      "name" in recipe.categoryId
+    ) {
+      return (recipe.categoryId as any).name;
+    }
+
+    // 3. Handle case where categoryId might be an array (based on Backend.md)
+    if (Array.isArray(recipe.categoryId) && recipe.categoryId.length > 0) {
+      const firstCat = recipe.categoryId[0];
+      if (typeof firstCat === "object" && "name" in firstCat) {
+        return firstCat.name;
+      }
+    }
+
+    return "Uncategorized";
+  };
+
+  const categoryName = getCategoryName();
 
   const userName =
     typeof recipe.userId === "object" && recipe.userId
@@ -190,14 +261,17 @@ export default function RecipeDetails() {
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.favoriteButton}
+          style={[
+            styles.favoriteButton,
+            isFavoriteState && styles.favoriteButtonActive,
+          ]}
           onPress={handleFavorite}
           disabled={favoriteMutation.isPending}
         >
           <Ionicons
-            name={isFavorite ? "heart" : "heart-outline"}
+            name={isFavoriteState ? "heart" : "heart-outline"}
             size={24}
-            color={isFavorite ? "#EF4444" : "#111827"}
+            color={isFavoriteState ? "#EF4444" : "#111827"}
           />
         </TouchableOpacity>
       </View>
@@ -384,6 +458,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  favoriteButtonActive: {
+    backgroundColor: "#FEF2F2", // Light red background when active
+    borderWidth: 1,
+    borderColor: "#FECACA",
   },
   content: {
     padding: 20,
