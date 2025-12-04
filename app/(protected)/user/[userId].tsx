@@ -1,5 +1,6 @@
 import { me } from "@/api/auth";
 import { followUser, getFollowing, unfollowUser } from "@/api/follows";
+import { getRecipeRatings } from "@/api/ratings";
 import { getUserById, getUserRecipes } from "@/api/users";
 import Recipe from "@/types/Recipe";
 import User from "@/types/User";
@@ -8,7 +9,7 @@ import { formatCookingTime } from "@/utils/timeUtils";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import React from "react";
+import React, { useMemo } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -23,6 +24,15 @@ export default function UserProfile() {
   const { userId } = useLocalSearchParams<{ userId: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
+
+  // Safe navigation helper - goes back if possible, otherwise goes to home
+  const handleSafeBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(protected)/(tabs)/(home)/" as any);
+    }
+  };
 
   // Get current user to check if viewing own profile
   const { data: currentUser } = useQuery({
@@ -113,6 +123,36 @@ export default function UserProfile() {
     }
   };
 
+  // Fetch ratings for all recipes to calculate average - MUST be before early returns
+  const recipeIds = recipes.map((r) => r._id);
+  const { data: allRatingsData } = useQuery({
+    queryKey: ["allRecipeRatings", userId, recipeIds],
+    queryFn: async () => {
+      if (recipeIds.length === 0) return [];
+      const ratingsPromises = recipeIds.map((id) =>
+        getRecipeRatings(id).catch(() => ({
+          averageRating: 0,
+          totalRatings: 0,
+        }))
+      );
+      return Promise.all(ratingsPromises);
+    },
+    enabled: recipeIds.length > 0,
+  });
+
+  const calculatedAverageRating = useMemo(() => {
+    if (!allRatingsData || allRatingsData.length === 0) return null;
+    const validRatings = allRatingsData.filter(
+      (r: any) => r && r.averageRating > 0
+    );
+    if (validRatings.length === 0) return null;
+    const sum = validRatings.reduce(
+      (acc: number, r: any) => acc + r.averageRating,
+      0
+    );
+    return sum / validRatings.length;
+  }, [allRatingsData]);
+
   const handleRecipePress = (recipeId: string) => {
     // Use replace to prevent route stacking
     router.replace(`/(protected)/recipe/${recipeId}` as any);
@@ -166,10 +206,7 @@ export default function UserProfile() {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>User not found</Text>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
+        <TouchableOpacity style={styles.backButton} onPress={handleSafeBack}>
           <Text style={styles.backButtonText}>Go Back</Text>
         </TouchableOpacity>
       </View>
@@ -230,6 +267,17 @@ export default function UserProfile() {
               <Text style={styles.statNumber}>{recipesCount}</Text>
               <Text style={styles.statLabel}>Recipes</Text>
             </View>
+            {calculatedAverageRating !== null && (
+              <View style={styles.statItem}>
+                <View style={styles.ratingStatContainer}>
+                  <Ionicons name="star" size={16} color="#FBBF24" />
+                  <Text style={styles.statNumber}>
+                    {calculatedAverageRating.toFixed(1)}
+                  </Text>
+                </View>
+                <Text style={styles.statLabel}>Avg Rating</Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -373,6 +421,11 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 14,
     color: "#6B7280",
+  },
+  ratingStatContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   userInfo: {
     padding: 20,

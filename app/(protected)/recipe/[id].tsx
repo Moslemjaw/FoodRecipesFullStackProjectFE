@@ -1,7 +1,14 @@
 import { me } from "@/api/auth";
 import { getCategoryById } from "@/api/categories";
 import { addFavorite, checkFavorite, removeFavorite } from "@/api/favorites";
+import {
+  addRating,
+  getRecipeRatings,
+  RatingResponse,
+  updateRating,
+} from "@/api/ratings";
 import { deleteRecipe, getRecipeById } from "@/api/recipes";
+import Rating from "@/types/Rating";
 import { RecipeIngredient } from "@/types/Recipe";
 import User from "@/types/User";
 import { getImageUrl } from "@/utils/imageUtils";
@@ -146,6 +153,356 @@ export default function RecipeDetails() {
     }
   };
 
+  // Fetch recipe ratings - use unique query key per recipe ID to prevent sharing ratings
+  const { data: ratingData } = useQuery<RatingResponse>({
+    queryKey: ["recipeRatings", id],
+    queryFn: () => {
+      if (!id) throw new Error("Recipe ID is required");
+      return getRecipeRatings(id);
+    },
+    enabled: !!id,
+    staleTime: 0, // Always fetch fresh data to prevent showing same ratings for all recipes
+  });
+
+  // Get current user's rating for this recipe
+  // Handle duplicates by selecting the most recent one
+  const userRating = useMemo(() => {
+    if (!ratingData?.ratings || !currentUser) return null;
+    const currentUserId =
+      typeof currentUser === "object" && currentUser._id
+        ? currentUser._id
+        : (currentUser as any)?.id;
+    if (!currentUserId) return null;
+
+    // Find all ratings by this user for this recipe (in case of duplicates)
+    const userRatings = ratingData.ratings.filter((r) => {
+      if (!r) return false;
+      const userId = typeof r.userID === "object" ? r.userID._id : r.userID;
+      return userId === currentUserId;
+    });
+
+    if (userRatings.length === 0) return null;
+
+    // If there are multiple ratings, get the most recent one
+    // Sort by createdAt (most recent first) or use the first one if no createdAt
+    const sortedRatings = userRatings.sort((a, b) => {
+      const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bDate - aDate; // Most recent first
+    });
+
+    const rating = sortedRatings[0];
+
+    // Validate that the rating has a valid _id
+    if (rating && rating._id) {
+      return rating;
+    }
+    return null;
+  }, [ratingData, currentUser]);
+
+  const [selectedRating, setSelectedRating] = useState<number | null>(null);
+
+  // Initialize selected rating from user's existing rating
+  useEffect(() => {
+    if (userRating) {
+      setSelectedRating(userRating.rating);
+    } else {
+      setSelectedRating(null);
+    }
+  }, [userRating]);
+
+  // Check if current user owns this recipe - MUST be before rating mutation
+  const isOwner = useMemo(() => {
+    if (!currentUser || !recipe) return false;
+    const recipeUserId =
+      typeof recipe.userId === "object" ? recipe.userId._id : recipe.userId;
+    const currentUserId =
+      typeof currentUser === "object" && currentUser._id
+        ? currentUser._id
+        : (currentUser as any)?.id;
+    return recipeUserId === currentUserId;
+  }, [currentUser, recipe]);
+
+  // Rating mutation
+  const ratingMutation = useMutation({
+    mutationFn: async ({
+      recipeId,
+      rating,
+    }: {
+      recipeId: string;
+      rating: number;
+    }) => {
+      // Validate recipeId
+      if (!recipeId) {
+        throw new Error("Recipe ID is required");
+      }
+
+      // Validate and ensure rating is a number
+      const validatedRating =
+        typeof rating === "string" ? parseInt(rating, 10) : Number(rating);
+      if (
+        isNaN(validatedRating) ||
+        validatedRating < 1 ||
+        validatedRating > 5
+      ) {
+        throw new Error("Rating must be a number between 1 and 5");
+      }
+
+      // Get current user ID
+      if (!currentUser) {
+        throw new Error("User must be logged in to rate recipes");
+      }
+
+      const currentUserId =
+        typeof currentUser === "object" && currentUser._id
+          ? currentUser._id
+          : (currentUser as any)?.id;
+
+      if (!currentUserId) {
+        throw new Error("User ID is required");
+      }
+
+      // Refetch ratings data to ensure we have the latest information
+      // This prevents using stale rating IDs
+      let freshRatingData: RatingResponse | null = null;
+      try {
+        freshRatingData = await getRecipeRatings(recipeId);
+      } catch (error) {
+        console.warn("Failed to refetch ratings, using cached data:", error);
+        // Fall back to cached data if refetch fails
+        freshRatingData = ratingData || null;
+      }
+
+      // Find rating by userID and recipeID from fresh rating data
+      let ratingToUpdate: Rating | null = null;
+
+      if (freshRatingData?.ratings && freshRatingData.ratings.length > 0) {
+        // Find all ratings by this user for this recipe
+        const userRatings = freshRatingData.ratings.filter((r) => {
+          if (!r) return false;
+          const userId = typeof r.userID === "object" ? r.userID._id : r.userID;
+          const recipeIdFromRating =
+            typeof r.recipeID === "object"
+              ? (r.recipeID as any)?._id
+              : r.recipeID;
+
+          return userId === currentUserId && recipeIdFromRating === recipeId;
+        });
+
+        if (userRatings.length > 0) {
+          // If there are multiple ratings, get the most recent one
+          const sortedRatings = userRatings.sort((a, b) => {
+            const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return bDate - aDate; // Most recent first
+          });
+          ratingToUpdate = sortedRatings[0];
+        }
+      }
+
+      // If we found a rating with a valid ID, try to update it using PUT
+      if (ratingToUpdate && ratingToUpdate._id) {
+        const ratingId = ratingToUpdate._id;
+        // Validate rating ID format (should be a non-empty string)
+        if (
+          !ratingId ||
+          typeof ratingId !== "string" ||
+          ratingId.trim().length === 0
+        ) {
+          console.error("Invalid rating ID format:", ratingId);
+          // If ID is invalid, try creating new rating
+          return await addRating(recipeId, validatedRating);
+        }
+
+        try {
+          console.log(
+            `Updating rating ID: ${ratingId} for user ${currentUserId} and recipe ${recipeId} to ${validatedRating}`
+          );
+          return await updateRating(ratingId, validatedRating);
+        } catch (updateError: any) {
+          // If update fails with 404, the rating ID is wrong or rating was deleted
+          // According to Backend.md: "One rating per user per recipe" - POST should handle this
+          if (updateError?.response?.status === 404) {
+            console.warn(
+              `Rating ${ratingId} not found (404). Using POST instead (Backend.md: "One rating per user per recipe").`
+            );
+            // Use POST - according to Backend.md, it handles "One rating per user per recipe"
+            // This should update existing or create new
+            try {
+              return await addRating(recipeId, validatedRating);
+            } catch (createError: any) {
+              // If POST fails with "Rating already exists", refetch and try PUT with correct ID
+              if (
+                createError?.response?.status === 400 &&
+                (createError?.response?.data?.message?.includes(
+                  "already exists"
+                ) ||
+                  createError?.response?.data?.message?.includes(
+                    "Rating already exists"
+                  ))
+              ) {
+                console.warn(
+                  "Rating already exists. Refetching to find correct rating ID for PUT."
+                );
+                // Refetch to get the actual rating with correct ID
+                const finalRatingData = await getRecipeRatings(recipeId);
+                const finalUserRatings = finalRatingData?.ratings?.filter(
+                  (r) => {
+                    if (!r || !r._id) return false;
+                    const userId =
+                      typeof r.userID === "object" ? r.userID._id : r.userID;
+                    const recipeIdFromRating =
+                      typeof r.recipeID === "object"
+                        ? (r.recipeID as any)?._id
+                        : r.recipeID;
+                    return (
+                      userId === currentUserId &&
+                      recipeIdFromRating === recipeId
+                    );
+                  }
+                );
+
+                if (finalUserRatings && finalUserRatings.length > 0) {
+                  // Sort by most recent
+                  const sortedFinalRatings = finalUserRatings.sort((a, b) => {
+                    const aDate = a.createdAt
+                      ? new Date(a.createdAt).getTime()
+                      : 0;
+                    const bDate = b.createdAt
+                      ? new Date(b.createdAt).getTime()
+                      : 0;
+                    return bDate - aDate;
+                  });
+                  const finalRating = sortedFinalRatings[0];
+                  if (finalRating && finalRating._id) {
+                    console.log(
+                      `Found rating ID: ${finalRating._id}. Attempting PUT update.`
+                    );
+                    // Try PUT one more time with the refetched ID
+                    return await updateRating(finalRating._id, validatedRating);
+                  }
+                }
+                // If we still can't find it, throw the original error
+                throw createError;
+              }
+              throw createError;
+            }
+          }
+          // Re-throw other errors
+          throw updateError;
+        }
+      } else {
+        // No existing rating found, create new one using POST
+        // But handle the case where rating might already exist
+        try {
+          console.log(
+            `Creating new rating for user ${currentUserId} and recipe ${recipeId} with rating ${validatedRating}`
+          );
+          return await addRating(recipeId, validatedRating);
+        } catch (createError: any) {
+          // If POST fails with "Rating already exists", refetch and update
+          if (
+            createError?.response?.status === 400 &&
+            (createError?.response?.data?.message?.includes("already exists") ||
+              createError?.response?.data?.message?.includes(
+                "Rating already exists"
+              ))
+          ) {
+            console.warn(
+              "Rating already exists. Refetching to find correct ID and update."
+            );
+            // Refetch to get the actual rating
+            const finalRatingData = await getRecipeRatings(recipeId);
+            const finalUserRatings = finalRatingData?.ratings?.filter((r) => {
+              if (!r || !r._id) return false;
+              const userId =
+                typeof r.userID === "object" ? r.userID._id : r.userID;
+              const recipeIdFromRating =
+                typeof r.recipeID === "object"
+                  ? (r.recipeID as any)?._id
+                  : r.recipeID;
+              return (
+                userId === currentUserId && recipeIdFromRating === recipeId
+              );
+            });
+
+            if (finalUserRatings && finalUserRatings.length > 0) {
+              const sortedFinalRatings = finalUserRatings.sort((a, b) => {
+                const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                return bDate - aDate;
+              });
+              const finalRating = sortedFinalRatings[0];
+              if (finalRating && finalRating._id) {
+                console.log(
+                  `Found rating ${finalRating._id} after 'already exists' error, updating it`
+                );
+                return await updateRating(finalRating._id, validatedRating);
+              }
+            }
+          }
+          // Re-throw if we couldn't handle it
+          throw createError;
+        }
+      }
+    },
+    onMutate: async ({ rating }) => {
+      // Optimistic update - update UI immediately
+      setSelectedRating(rating);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recipeRatings", id] });
+      queryClient.invalidateQueries({ queryKey: ["recipes"] });
+      queryClient.invalidateQueries({ queryKey: ["myRecipes"] });
+      queryClient.invalidateQueries({ queryKey: ["userRecipes"] });
+    },
+    onError: (error: any, variables, context) => {
+      console.error("Rating error:", error);
+      // Revert optimistic update on error
+      if (userRating) {
+        setSelectedRating(userRating.rating);
+      } else {
+        setSelectedRating(null);
+      }
+
+      let errorMessage = "Failed to submit rating. Please try again.";
+      if (error?.response?.status === 404) {
+        errorMessage = "Rating not found. Please try rating again.";
+      } else if (error?.response?.status === 400) {
+        errorMessage =
+          error?.response?.data?.message ||
+          "Invalid rating value. Please select a rating between 1 and 5.";
+      } else if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+
+      Alert.alert("Error", errorMessage);
+    },
+  });
+
+  // Safe navigation helper - goes back if possible, otherwise goes to home
+  const handleSafeBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(protected)/(tabs)/(home)/" as any);
+    }
+  };
+
+  const handleRatingPress = (rating: number) => {
+    if (!id || isOwner) return; // Only allow rating if not owner
+
+    // Validate rating value
+    if (!rating || rating < 1 || rating > 5) {
+      Alert.alert("Invalid Rating", "Please select a rating between 1 and 5.");
+      return;
+    }
+
+    ratingMutation.mutate({ recipeId: id, rating });
+  };
+
   // Delete recipe mutation
   const deleteMutation = useMutation({
     mutationFn: deleteRecipe,
@@ -153,7 +510,7 @@ export default function RecipeDetails() {
       queryClient.invalidateQueries({ queryKey: ["recipes"] });
       queryClient.invalidateQueries({ queryKey: ["myRecipes"] });
       Alert.alert("Success", "Recipe deleted successfully!");
-      router.back();
+      handleSafeBack();
     },
     onError: (error: any) => {
       console.error("Delete recipe error:", error);
@@ -212,18 +569,6 @@ export default function RecipeDetails() {
       : [{ _id: "", name: "Uncategorized" }];
   }, [recipe, category]);
 
-  // Check if current user owns this recipe - MUST be before any early returns
-  const isOwner = useMemo(() => {
-    if (!currentUser || !recipe) return false;
-    const recipeUserId =
-      typeof recipe.userId === "object" ? recipe.userId._id : recipe.userId;
-    const currentUserId =
-      typeof currentUser === "object" && currentUser._id
-        ? currentUser._id
-        : (currentUser as any)?.id;
-    return recipeUserId === currentUserId;
-  }, [currentUser, recipe]);
-
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -238,10 +583,7 @@ export default function RecipeDetails() {
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle-outline" size={64} color="#EF4444" />
         <Text style={styles.errorText}>Recipe ID is missing</Text>
-        <TouchableOpacity
-          style={styles.retryButton}
-          onPress={() => router.back()}
-        >
+        <TouchableOpacity style={styles.retryButton} onPress={handleSafeBack}>
           <Text style={styles.retryButtonText}>Go Back</Text>
         </TouchableOpacity>
       </View>
@@ -258,10 +600,7 @@ export default function RecipeDetails() {
         <Text style={styles.errorSubtext}>
           {error instanceof Error ? error.message : "Please try again later"}
         </Text>
-        <TouchableOpacity
-          style={styles.retryButton}
-          onPress={() => router.back()}
-        >
+        <TouchableOpacity style={styles.retryButton} onPress={handleSafeBack}>
           <Text style={styles.retryButtonText}>Go Back</Text>
         </TouchableOpacity>
       </View>
@@ -352,10 +691,7 @@ export default function RecipeDetails() {
 
       {/* Header with Back Button, Edit/Delete (if owner), and Favorite */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
+        <TouchableOpacity style={styles.backButton} onPress={handleSafeBack}>
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
         <View style={styles.headerActions}>
@@ -413,6 +749,93 @@ export default function RecipeDetails() {
                 </View>
               ))}
             </View>
+          </View>
+          {/* Rating Section */}
+          <View style={styles.ratingSection}>
+            {isOwner ? (
+              <>
+                <Text style={styles.ratingLabel}>Recipe Ratings:</Text>
+                {ratingData && ratingData.totalRatings > 0 ? (
+                  <>
+                    <View style={styles.ratingStats}>
+                      <Text style={styles.ratingStatsText}>
+                        {ratingData.averageRating.toFixed(1)} ⭐ (
+                        {ratingData.totalRatings}{" "}
+                        {ratingData.totalRatings === 1 ? "rating" : "ratings"})
+                      </Text>
+                    </View>
+                    {/* Show user's own rating if they have one (read-only) */}
+                    {userRating && (
+                      <View style={styles.userRatingDisplay}>
+                        <Text style={styles.userRatingLabel}>Your rating:</Text>
+                        <View style={styles.ratingStarsContainer}>
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <View key={star} style={styles.starButton}>
+                              <Ionicons
+                                name={
+                                  userRating.rating >= star
+                                    ? "star"
+                                    : "star-outline"
+                                }
+                                size={24}
+                                color={
+                                  userRating.rating >= star
+                                    ? "#FBBF24"
+                                    : "#D1D5DB"
+                                }
+                              />
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    )}
+                  </>
+                ) : (
+                  <Text style={styles.noRatingsText}>No ratings yet</Text>
+                )}
+              </>
+            ) : (
+              <>
+                <Text style={styles.ratingLabel}>Rate this recipe:</Text>
+                <View style={styles.ratingStarsContainer}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <TouchableOpacity
+                      key={star}
+                      onPress={() => handleRatingPress(star)}
+                      disabled={ratingMutation.isPending}
+                      style={styles.starButton}
+                    >
+                      <Ionicons
+                        name={
+                          selectedRating && star <= selectedRating
+                            ? "star"
+                            : "star-outline"
+                        }
+                        size={32}
+                        color={
+                          selectedRating && star <= selectedRating
+                            ? "#FBBF24"
+                            : "#D1D5DB"
+                        }
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {ratingData &&
+                ratingData.totalRatings > 0 &&
+                ratingData.averageRating > 0 ? (
+                  <View style={styles.ratingStats}>
+                    <Text style={styles.ratingStatsText}>
+                      {ratingData.averageRating.toFixed(1)} ⭐ (
+                      {ratingData.totalRatings}{" "}
+                      {ratingData.totalRatings === 1 ? "rating" : "ratings"})
+                    </Text>
+                  </View>
+                ) : ratingData && ratingData.totalRatings === 0 ? (
+                  <Text style={styles.noRatingsText}>No ratings yet</Text>
+                ) : null}
+              </>
+            )}
           </View>
         </View>
 
@@ -668,6 +1091,51 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#3B82F6",
     fontWeight: "500",
+  },
+  ratingSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+  },
+  ratingLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 12,
+  },
+  ratingStarsContainer: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  starButton: {
+    padding: 4,
+  },
+  ratingStats: {
+    marginTop: 4,
+  },
+  ratingStatsText: {
+    fontSize: 14,
+    color: "#6B7280",
+    fontWeight: "500",
+  },
+  userRatingDisplay: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+  },
+  userRatingLabel: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginBottom: 8,
+  },
+  noRatingsText: {
+    fontSize: 14,
+    color: "#9CA3AF",
+    fontStyle: "italic",
   },
   userSection: {
     flexDirection: "row",

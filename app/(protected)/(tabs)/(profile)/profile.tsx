@@ -2,6 +2,7 @@ import { me } from "@/api/auth";
 import { getAllCategories } from "@/api/categories";
 import { getFollowers, getFollowing } from "@/api/follows";
 import { getAllIngredients } from "@/api/ingredients";
+import { getRecipeRatings } from "@/api/ratings";
 import { getMyRecipes } from "@/api/recipes";
 import { deleteToken } from "@/api/storage";
 import AuthContext from "@/context/AuthContext";
@@ -208,6 +209,36 @@ export default function Profile() {
   const followingCount = Array.isArray(following) ? following.length : 0;
   const recipesCount = recipes.length;
 
+  // Fetch ratings for all recipes to calculate average
+  const recipeIds = recipes.map((r) => r._id);
+  const { data: allRatingsData } = useQuery({
+    queryKey: ["allRecipeRatings", recipeIds],
+    queryFn: async () => {
+      if (recipeIds.length === 0) return [];
+      const ratingsPromises = recipeIds.map((id) =>
+        getRecipeRatings(id).catch(() => ({
+          averageRating: 0,
+          totalRatings: 0,
+        }))
+      );
+      return Promise.all(ratingsPromises);
+    },
+    enabled: recipeIds.length > 0,
+  });
+
+  const calculatedAverageRating = useMemo(() => {
+    if (!allRatingsData || allRatingsData.length === 0) return null;
+    const validRatings = allRatingsData.filter(
+      (r: any) => r && r.averageRating > 0
+    );
+    if (validRatings.length === 0) return null;
+    const sum = validRatings.reduce(
+      (acc: number, r: any) => acc + r.averageRating,
+      0
+    );
+    return sum / validRatings.length;
+  }, [allRatingsData]);
+
   // Show minimal loading only for critical user data
   if (isLoadingUser && !currentUser) {
     return (
@@ -254,6 +285,17 @@ export default function Profile() {
             <Text style={styles.statNumber}>{followingCount}</Text>
             <Text style={styles.statLabel}>Following</Text>
           </View>
+          {calculatedAverageRating !== null && (
+            <View style={styles.statItem}>
+              <View style={styles.ratingStatContainer}>
+                <Ionicons name="star" size={16} color="#FBBF24" />
+                <Text style={styles.statNumber}>
+                  {calculatedAverageRating.toFixed(1)}
+                </Text>
+              </View>
+              <Text style={styles.statLabel}>Avg Rating</Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -506,6 +548,11 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 14,
     color: "#6B7280",
+  },
+  ratingStatContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   userInfo: {
     padding: 20,

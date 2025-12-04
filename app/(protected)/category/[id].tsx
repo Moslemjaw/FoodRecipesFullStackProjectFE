@@ -21,6 +21,15 @@ const CategoryDetails = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
+  // Safe navigation helper - goes back if possible, otherwise goes to home
+  const handleSafeBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(protected)/(tabs)/(home)/" as any);
+    }
+  };
+
   const { data: category } = useQuery({
     queryKey: ["category", id],
     queryFn: () => getCategoryById(id as string),
@@ -171,7 +180,7 @@ const CategoryDetails = () => {
           headerShadowVisible: false,
           headerLeft: () => (
             <TouchableOpacity
-              onPress={() => router.back()}
+              onPress={handleSafeBack}
               style={{ marginLeft: 0, marginRight: 10 }}
             >
               <Ionicons name="arrow-back" size={24} color="#111111" />
