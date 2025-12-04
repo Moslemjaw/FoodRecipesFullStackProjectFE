@@ -2,6 +2,7 @@ import { getCategoryById } from "@/api/categories";
 import { getAllRecipes, getRecipesByCategory } from "@/api/recipes";
 import Recipe from "@/types/Recipe";
 import { getImageUrl } from "@/utils/imageUtils";
+import { formatCookingTime } from "@/utils/timeUtils";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
@@ -77,17 +78,41 @@ const CategoryDetails = () => {
     return [];
   }, [recipes, allRecipes, id]);
 
+  const getCategories = (recipe: Recipe) => {
+    const categories: Array<{ _id: string; name: string }> = [];
+
+    if (Array.isArray(recipe.categoryId) && recipe.categoryId.length > 0) {
+      recipe.categoryId.forEach((cat: any) => {
+        if (typeof cat === "object" && cat.name && cat._id) {
+          if (!categories.some((c) => c._id === cat._id)) {
+            categories.push({ _id: cat._id, name: cat.name });
+          }
+        }
+      });
+    } else if (
+      recipe.categoryId &&
+      typeof recipe.categoryId === "object" &&
+      "name" in recipe.categoryId
+    ) {
+      const cat = recipe.categoryId as any;
+      if (cat._id && cat.name) {
+        categories.push({ _id: cat._id, name: cat.name });
+      }
+    }
+
+    return categories.length > 0
+      ? categories
+      : [{ _id: "", name: "Uncategorized" }];
+  };
+
   const renderRecipe = ({ item }: { item: Recipe }) => {
     const imageUrl = getImageUrl(item.image);
-    const categoryName =
-      typeof item.categoryId === "object" && item.categoryId
-        ? (item.categoryId as any).name || (item.categoryId as any)[0]?.name
-        : "Uncategorized";
+    const categories = getCategories(item);
 
     return (
       <TouchableOpacity
         style={styles.recipeCard}
-        onPress={() => router.push(`/(protected)/recipe/${item._id}`)}
+        onPress={() => router.replace(`/(protected)/recipe/${item._id}` as any)}
         activeOpacity={0.9}
       >
         <View style={styles.imageContainer}>
@@ -107,12 +132,17 @@ const CategoryDetails = () => {
             {item.cookingTime && (
               <View style={styles.metaItem}>
                 <Ionicons name="time-outline" size={14} color="#6B7280" />
-                <Text style={styles.metaText}>{item.cookingTime} min</Text>
+                <Text style={styles.metaText}>
+                  {formatCookingTime(item.cookingTime)}
+                </Text>
               </View>
             )}
-            <View style={styles.metaItem}>
-              <Ionicons name="pricetag-outline" size={14} color="#6B7280" />
-              <Text style={styles.metaText}>{categoryName}</Text>
+            <View style={styles.categoriesContainer}>
+              {categories.map((cat) => (
+                <View key={cat._id} style={styles.categoryPill}>
+                  <Text style={styles.categoryPillText}>{cat.name}</Text>
+                </View>
+              ))}
             </View>
           </View>
         </View>
@@ -256,6 +286,25 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 12, // Changed from 13
     color: "#6B7280",
+  },
+  categoriesContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+    alignItems: "center",
+  },
+  categoryPill: {
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#3B82F6",
+  },
+  categoryPillText: {
+    fontSize: 10,
+    color: "#3B82F6",
+    fontWeight: "500",
   },
   emptyContainer: {
     flex: 1,

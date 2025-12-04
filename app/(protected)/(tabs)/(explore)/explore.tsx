@@ -1,8 +1,14 @@
 import { getAllCategories } from "@/api/categories";
-import { getAllRecipes } from "@/api/recipes";
+import { getAllIngredients } from "@/api/ingredients";
+import {
+  filterByIngredients,
+  getAllRecipes,
+  getFeedRecipes,
+} from "@/api/recipes";
 import Category from "@/types/Category";
 import Recipe from "@/types/Recipe";
 import { getImageUrl } from "@/utils/imageUtils";
+import { formatCookingTime } from "@/utils/timeUtils";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
@@ -27,58 +33,87 @@ export default function Explore() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortBy>("none");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [showFeed, setShowFeed] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
   const router = useRouter();
 
   const {
-    data: recipes = [],
-    isLoading,
-    refetch,
-    isRefetching,
+    data: allRecipes = [],
+    isLoading: isLoadingAll,
+    refetch: refetchAll,
+    isRefetching: isRefetchingAll,
   } = useQuery({
     queryKey: ["recipes"],
     queryFn: async () => {
       const data = await getAllRecipes();
-      console.log("Fetched recipes:", data.length);
-      // Log first recipe's image to debug
-      if (data.length > 0) {
-        console.log("First recipe image field:", data[0].image);
-        console.log(
-          "First recipe full data:",
-          JSON.stringify(data[0], null, 2)
-        );
-      }
       return data;
     },
   });
+
+  const {
+    data: feedRecipes = [],
+    isLoading: isLoadingFeed,
+    refetch: refetchFeed,
+    isRefetching: isRefetchingFeed,
+  } = useQuery({
+    queryKey: ["feed"],
+    queryFn: getFeedRecipes,
+    enabled: showFeed,
+  });
+
+  const recipes = showFeed ? feedRecipes : allRecipes;
+  const isLoading = showFeed ? isLoadingFeed : isLoadingAll;
+  const isRefetching = showFeed ? isRefetchingFeed : isRefetchingAll;
+  const refetch = showFeed ? refetchFeed : refetchAll;
 
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
     queryKey: ["categories"],
     queryFn: getAllCategories,
   });
 
+  const { data: ingredients = [] } = useQuery({
+    queryKey: ["ingredients"],
+    queryFn: getAllIngredients,
+  });
+
+  // Fetch filtered recipes by ingredients if any selected
+  const { data: ingredientFilteredRecipes = [] } = useQuery({
+    queryKey: ["recipesByIngredients", selectedIngredients],
+    queryFn: () => filterByIngredients(selectedIngredients),
+    enabled: selectedIngredients.length > 0 && !showFeed,
+  });
+
   const filteredRecipes = useMemo(() => {
-    let filtered = recipes;
+    // Use ingredient-filtered recipes if ingredients are selected
+    let filtered =
+      selectedIngredients.length > 0 && !showFeed
+        ? [...ingredientFilteredRecipes]
+        : [...recipes];
 
     // Filter by search query
     if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
       filtered = filtered.filter((recipe) =>
-        recipe.title.toLowerCase().includes(searchQuery.toLowerCase())
+        recipe.title.toLowerCase().includes(query)
       );
     }
 
-    // Filter by category
-    if (selectedCategory) {
+    // Filter by category (only in explore mode, not feed)
+    if (!showFeed && selectedCategory) {
       filtered = filtered.filter((recipe) => {
         const categoryId =
           typeof recipe.categoryId === "string"
             ? recipe.categoryId
+            : Array.isArray(recipe.categoryId)
+            ? recipe.categoryId[0]?._id || recipe.categoryId[0]
             : recipe.categoryId?._id;
         return categoryId === selectedCategory;
       });
     }
 
-    // Apply sorting
-    if (sortBy !== "none") {
+    // Apply sorting (only in explore mode, feed is already sorted by most recent)
+    if (!showFeed && sortBy !== "none") {
       filtered = [...filtered].sort((a, b) => {
         let comparison = 0;
 
@@ -95,20 +130,50 @@ export default function Explore() {
     }
 
     return filtered;
-  }, [recipes, searchQuery, selectedCategory, sortBy, sortDirection]);
+  }, [
+    recipes,
+    ingredientFilteredRecipes,
+    selectedIngredients,
+    searchQuery,
+    selectedCategory,
+    sortBy,
+    sortDirection,
+    showFeed,
+  ]);
 
   const handleRecipePress = (recipeId: string) => {
-    router.push(`/(protected)/recipe/${recipeId}` as any);
+    router.replace(`/(protected)/recipe/${recipeId}` as any);
+  };
+
+  const getCategories = (recipe: Recipe) => {
+    const categories: Array<{ _id: string; name: string }> = [];
+
+    if (Array.isArray(recipe.categoryId) && recipe.categoryId.length > 0) {
+      recipe.categoryId.forEach((cat: any) => {
+        if (typeof cat === "object" && cat.name && cat._id) {
+          if (!categories.some((c) => c._id === cat._id)) {
+            categories.push({ _id: cat._id, name: cat.name });
+          }
+        }
+      });
+    } else if (
+      recipe.categoryId &&
+      typeof recipe.categoryId === "object" &&
+      "name" in recipe.categoryId
+    ) {
+      const cat = recipe.categoryId as any;
+      if (cat._id && cat.name) {
+        categories.push({ _id: cat._id, name: cat.name });
+      }
+    }
+
+    return categories.length > 0
+      ? categories
+      : [{ _id: "", name: "Uncategorized" }];
   };
 
   const renderRecipeCard = ({ item }: { item: Recipe }) => {
-    const categoryName =
-      item.categoryId && typeof item.categoryId === "object"
-        ? Array.isArray(item.categoryId)
-          ? item.categoryId[0]?.name || "Uncategorized"
-          : (item.categoryId as any).name || "Uncategorized"
-        : "Uncategorized";
-
+    const categories = getCategories(item);
     const imageUrl = getImageUrl(item.image);
 
     // Debug logging
@@ -153,12 +218,17 @@ export default function Explore() {
             {item.cookingTime && (
               <View style={styles.metaItem}>
                 <Ionicons name="time-outline" size={14} color="#6B7280" />
-                <Text style={styles.metaText}>{item.cookingTime} min</Text>
+                <Text style={styles.metaText}>
+                  {formatCookingTime(item.cookingTime)}
+                </Text>
               </View>
             )}
-            <View style={styles.metaItem}>
-              <Ionicons name="pricetag-outline" size={14} color="#6B7280" />
-              <Text style={styles.metaText}>{categoryName}</Text>
+            <View style={styles.categoriesContainer}>
+              {categories.map((cat) => (
+                <View key={cat._id} style={styles.categoryPill}>
+                  <Text style={styles.categoryPillText}>{cat.name}</Text>
+                </View>
+              ))}
             </View>
           </View>
         </View>
@@ -197,7 +267,7 @@ export default function Explore() {
 
   return (
     <View style={styles.container}>
-      {/* Search Bar */}
+      {/* Search Bar and Feed Button */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
           <Ionicons name="search-outline" size={20} color="#9CA3AF" />
@@ -214,7 +284,152 @@ export default function Explore() {
             </TouchableOpacity>
           )}
         </View>
+        <TouchableOpacity
+          style={[styles.feedButton, showFeed && styles.feedButtonActive]}
+          onPress={() => setShowFeed(!showFeed)}
+        >
+          <Ionicons
+            name={showFeed ? "newspaper" : "newspaper-outline"}
+            size={20}
+            color={showFeed ? "#FFFFFF" : "#3B82F6"}
+          />
+          <Text
+            style={[
+              styles.feedButtonText,
+              showFeed && styles.feedButtonTextActive,
+            ]}
+          >
+            Feed
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.filterToggleButton,
+            showFilters && styles.filterToggleButtonActive,
+          ]}
+          onPress={() => setShowFilters(!showFilters)}
+        >
+          <Ionicons
+            name={showFilters ? "filter" : "filter-outline"}
+            size={20}
+            color={
+              showFilters || selectedIngredients.length > 0
+                ? "#FFFFFF"
+                : "#3B82F6"
+            }
+          />
+        </TouchableOpacity>
       </View>
+
+      {/* Filters (Category and Ingredients) */}
+      {showFilters && !showFeed && (
+        <View style={styles.ingredientFiltersContainer}>
+          {/* Category Filter */}
+          <View style={styles.filterSection}>
+            <Text style={styles.ingredientFiltersTitle}>
+              Filter by Category:
+            </Text>
+            <View style={styles.ingredientChipsContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.ingredientChip,
+                  !selectedCategory && styles.ingredientChipSelected,
+                ]}
+                onPress={() => setSelectedCategory(null)}
+              >
+                <Text
+                  style={[
+                    styles.ingredientChipText,
+                    !selectedCategory && styles.ingredientChipTextSelected,
+                  ]}
+                >
+                  All
+                </Text>
+              </TouchableOpacity>
+              {categories.map((category) => (
+                <TouchableOpacity
+                  key={category._id}
+                  style={[
+                    styles.ingredientChip,
+                    selectedCategory === category._id &&
+                      styles.ingredientChipSelected,
+                  ]}
+                  onPress={() =>
+                    setSelectedCategory(
+                      selectedCategory === category._id ? null : category._id
+                    )
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.ingredientChipText,
+                      selectedCategory === category._id &&
+                        styles.ingredientChipTextSelected,
+                    ]}
+                  >
+                    {category.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Ingredient Filter */}
+          <View style={styles.filterSection}>
+            <Text style={styles.ingredientFiltersTitle}>
+              Filter by Ingredients:
+            </Text>
+            <View style={styles.ingredientChipsContainer}>
+              {ingredients.map((ingredient) => {
+                const isSelected = selectedIngredients.includes(ingredient._id);
+                return (
+                  <TouchableOpacity
+                    key={ingredient._id}
+                    style={[
+                      styles.ingredientChip,
+                      isSelected && styles.ingredientChipSelected,
+                    ]}
+                    onPress={() => {
+                      if (isSelected) {
+                        setSelectedIngredients(
+                          selectedIngredients.filter(
+                            (id) => id !== ingredient._id
+                          )
+                        );
+                      } else {
+                        setSelectedIngredients([
+                          ...selectedIngredients,
+                          ingredient._id,
+                        ]);
+                      }
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.ingredientChipText,
+                        isSelected && styles.ingredientChipTextSelected,
+                      ]}
+                    >
+                      {ingredient.name}
+                    </Text>
+                    {isSelected && (
+                      <Ionicons name="close-circle" size={16} color="#FFFFFF" />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            {selectedIngredients.length > 0 && (
+              <TouchableOpacity
+                style={styles.clearFiltersButton}
+                onPress={() => setSelectedIngredients([])}
+              >
+                <Text style={styles.clearFiltersText}>Clear Filters</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      )}
 
       {/* Sort Controls */}
       <View style={styles.sortContainer}>
@@ -283,20 +498,6 @@ export default function Explore() {
         </View>
       </View>
 
-      {/* Category Filters */}
-      {!categoriesLoading && categories.length > 0 && (
-        <View style={styles.categoriesContainer}>
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            data={categories}
-            renderItem={({ item }) => renderCategoryChip(item)}
-            keyExtractor={(item) => item._id}
-            contentContainerStyle={styles.categoriesList}
-          />
-        </View>
-      )}
-
       {/* Recipes Grid */}
       <FlatList
         data={filteredRecipes}
@@ -355,8 +556,12 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   searchBar: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#F3F4F6",
@@ -419,6 +624,93 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 8,
     backgroundColor: "#EFF6FF",
+  },
+  feedButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: "#F3F4F6",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  feedButtonActive: {
+    backgroundColor: "#3B82F6",
+    borderColor: "#3B82F6",
+  },
+  feedButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#3B82F6",
+  },
+  feedButtonTextActive: {
+    color: "#FFFFFF",
+  },
+  filterToggleButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: "#F3F4F6",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  filterToggleButtonActive: {
+    backgroundColor: "#3B82F6",
+    borderColor: "#3B82F6",
+  },
+  ingredientFiltersContainer: {
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  ingredientFiltersTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 12,
+  },
+  ingredientChipsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 12,
+  },
+  ingredientChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#F3F4F6",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  ingredientChipSelected: {
+    backgroundColor: "#3B82F6",
+    borderColor: "#3B82F6",
+  },
+  ingredientChipText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#6B7280",
+  },
+  ingredientChipTextSelected: {
+    color: "#FFFFFF",
+  },
+  clearFiltersButton: {
+    alignSelf: "flex-start",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  clearFiltersText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#EF4444",
   },
   categoriesContainer: {
     backgroundColor: "#FFFFFF",
@@ -506,6 +798,25 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 12,
     color: "#6B7280",
+  },
+  categoriesContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+    alignItems: "center",
+  },
+  categoryPill: {
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#3B82F6",
+  },
+  categoryPillText: {
+    fontSize: 10,
+    color: "#3B82F6",
+    fontWeight: "500",
   },
   emptyContainer: {
     flex: 1,

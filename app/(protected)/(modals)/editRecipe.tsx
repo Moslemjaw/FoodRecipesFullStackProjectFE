@@ -1,13 +1,15 @@
 import { getAllCategories, createCategory } from "@/api/categories";
 import { getAllIngredients, createIngredient, searchIngredients } from "@/api/ingredients";
-import { createRecipe } from "@/api/recipes";
+import { updateRecipe, getRecipeById } from "@/api/recipes";
 import Category from "@/types/Category";
 import Ingredient from "@/types/Ingredient";
+import Recipe from "@/types/Recipe";
+import { getImageUrl } from "@/utils/imageUtils";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as ImagePicker from "expo-image-picker";
-import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useState, useEffect } from "react";
 import { Platform } from "react-native";
 import {
   Alert,
@@ -18,11 +20,14 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
 
-export default function CreateRecipe() {
+export default function EditRecipe() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { recipeId } = useLocalSearchParams<{ recipeId: string }>();
+
   const [title, setTitle] = useState("");
   const [instructions, setInstructions] = useState("");
   const [cookingTime, setCookingTime] = useState("");
@@ -32,7 +37,63 @@ export default function CreateRecipe() {
     { ingredientId: string; quantity: string; unit: string; searchQuery?: string }[]
   >([]);
   const [error, setError] = useState<string>("");
+  const [isImageChanged, setIsImageChanged] = useState(false);
   const [ingredientSearchQueries, setIngredientSearchQueries] = useState<{ [key: number]: string }>({});
+
+  // Fetch recipe data
+  const { data: recipe, isLoading: isLoadingRecipe } = useQuery({
+    queryKey: ["recipe", recipeId],
+    queryFn: () => getRecipeById(recipeId!),
+    enabled: !!recipeId,
+  });
+
+  // Update form when recipe data is loaded
+  useEffect(() => {
+    if (recipe) {
+      setTitle(recipe.title || "");
+      setInstructions(
+        Array.isArray(recipe.instructions)
+          ? recipe.instructions.join("\n")
+          : recipe.instructions || ""
+      );
+      setCookingTime(String(recipe.cookingTime || ""));
+      
+      // Set categories (handle array)
+      if (Array.isArray(recipe.categoryId)) {
+        const categoryIds = recipe.categoryId.map((cat: any) =>
+          typeof cat === "object" ? cat._id : cat
+        );
+        setSelectedCategories(categoryIds);
+      } else if (recipe.categoryId) {
+        const categoryId =
+          typeof recipe.categoryId === "string"
+            ? recipe.categoryId
+            : recipe.categoryId._id;
+        setSelectedCategories(categoryId ? [categoryId] : []);
+      } else {
+        setSelectedCategories([]);
+      }
+
+      // Set image
+      if (recipe.image) {
+        const imageUrl = getImageUrl(recipe.image);
+        setImage(imageUrl);
+      }
+
+      // Set ingredients
+      if (recipe.ingredients && Array.isArray(recipe.ingredients)) {
+        const formattedIngredients = recipe.ingredients.map((ing: any) => ({
+          ingredientId:
+            typeof ing.ingredientId === "object"
+              ? ing.ingredientId._id
+              : ing.ingredientId,
+          quantity: String(ing.quantity || ""),
+          unit: ing.unit || "",
+        }));
+        setSelectedIngredients(formattedIngredients);
+      }
+    }
+  }, [recipe]);
 
   // Fetch categories
   const { data: categories } = useQuery({
@@ -60,7 +121,7 @@ export default function CreateRecipe() {
     },
   });
 
-  // Create recipe mutation
+  // Update recipe mutation
   const { mutate, isPending } = useMutation({
     mutationFn: () => {
       const validIngredients = selectedIngredients
@@ -81,36 +142,26 @@ export default function CreateRecipe() {
         throw new Error("Please select at least one category");
       }
 
-      console.log("Submitting recipe:", {
-        title: title.trim(),
-        instructionsLength: instructions.trim().length,
-        cookingTime: parseInt(cookingTime) || 0,
-        categoryIds: selectedCategories,
-        ingredients: validIngredients,
-        hasImage: !!image,
-      });
-
-      return createRecipe(
+      return updateRecipe(
+        recipeId!,
         title.trim(),
         instructions.trim(),
         parseInt(cookingTime) || 0,
         selectedCategories,
         validIngredients,
-        image || undefined
+        isImageChanged ? image || undefined : undefined
       );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recipes"] });
       queryClient.invalidateQueries({ queryKey: ["myRecipes"] });
-      Alert.alert("Success", "Recipe created successfully!");
+      queryClient.invalidateQueries({ queryKey: ["recipe", recipeId] });
+      Alert.alert("Success", "Recipe updated successfully!");
       router.back();
     },
     onError: (err: any) => {
-      console.error("Recipe creation error:", err);
-      console.error("Error response data:", err?.response?.data);
-      console.error("Error response status:", err?.response?.status);
-
-      let errorMessage = "Failed to create recipe. Please try again.";
+      console.error("Recipe update error:", err);
+      let errorMessage = "Failed to update recipe. Please try again.";
 
       // Extract error message
       if (err?.response?.data) {
@@ -157,11 +208,9 @@ export default function CreateRecipe() {
       quality: 0.8,
     });
 
-    console.log("Image picker result:", result); // Add this
-
     if (!result.canceled) {
-      console.log("Image URI set to:", result.assets[0].uri); // Add this
       setImage(result.assets[0].uri);
+      setIsImageChanged(true);
     }
   };
 
@@ -300,6 +349,29 @@ export default function CreateRecipe() {
     mutate();
   };
 
+  if (isLoadingRecipe) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#3B82F6" />
+        <Text style={styles.loadingText}>Loading recipe...</Text>
+      </View>
+    );
+  }
+
+  if (!recipe) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>Recipe not found</Text>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.backButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -307,7 +379,7 @@ export default function CreateRecipe() {
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="close" size={28} color="#111827" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Create Recipe</Text>
+        <Text style={styles.headerTitle}>Edit Recipe</Text>
         <TouchableOpacity
           onPress={handleSubmit}
           disabled={isPending}
@@ -317,7 +389,7 @@ export default function CreateRecipe() {
           ]}
         >
           <Text style={styles.submitButtonText}>
-            {isPending ? "..." : "Post"}
+            {isPending ? "..." : "Save"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -337,7 +409,7 @@ export default function CreateRecipe() {
           ) : (
             <View style={styles.imagePlaceholder}>
               <Ionicons name="camera-outline" size={40} color="#9CA3AF" />
-              <Text style={styles.imagePlaceholderText}>Add Photo</Text>
+              <Text style={styles.imagePlaceholderText}>Change Photo</Text>
             </View>
           )}
         </TouchableOpacity>
@@ -562,6 +634,28 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFFFFF",
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: "#6B7280",
+  },
+  backButton: {
+    marginTop: 20,
+    backgroundColor: "#3B82F6",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  backButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -677,12 +771,6 @@ const styles = StyleSheet.create({
     color: "#3B82F6",
     fontWeight: "600",
   },
-  selectedCountText: {
-    fontSize: 12,
-    color: "#6B7280",
-    marginTop: 8,
-    fontStyle: "italic",
-  },
   ingredientsHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -774,3 +862,4 @@ const styles = StyleSheet.create({
     height: 40,
   },
 });
+

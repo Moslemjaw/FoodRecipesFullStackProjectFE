@@ -100,12 +100,12 @@ interface Ingredient {
 
 ### **Endpoints**
 
-| Method     | Endpoint  | Auth | Input                | Response                      |
-| :--------- | :-------- | :--- | :------------------- | :---------------------------- |
-| **GET**    | `/`       | No   | None                 | `Ingredient[]`                |
-| **GET**    | `/search` | No   | Query: `?name=onion` | `Ingredient[]` (Regex search) |
-| **POST**   | `/`       | No   | `{ "name": "..." }`  | Message string                |
-| **DELETE** | `/:id`    | No   | Params: `id`         | Message string                |
+| Method     | Endpoint  | Auth    | Input                | Response                      |
+| :--------- | :-------- | :------ | :------------------- | :---------------------------- |
+| **GET**    | `/`       | No      | None                 | `Ingredient[]`                |
+| **GET**    | `/search` | No      | Query: `?name=onion` | `Ingredient[]` (Regex search) |
+| **POST**   | `/`       | **Yes** | `{ "name": "..." }`  | Message string                |
+| **DELETE** | `/:id`    | **Yes** | Params: `id`         | Message string                |
 
 ---
 
@@ -124,13 +124,13 @@ interface Category {
 
 ### **Endpoints**
 
-| Method     | Endpoint | Auth | Input               | Response       |
-| :--------- | :------- | :--- | :------------------ | :------------- |
-| **GET**    | `/`      | No   | None                | `Category[]`   |
-| **GET**    | `/:id`   | No   | Params: `id`        | `Category`     |
-| **POST**   | `/`      | No   | `{ "name": "..." }` | `Category`     |
-| **PUT**    | `/:id`   | No   | `{ "name": "..." }` | `Category`     |
-| **DELETE** | `/:id`   | No   | Params: `id`        | Message string |
+| Method     | Endpoint | Auth    | Input               | Response       |
+| :--------- | :------- | :------ | :------------------ | :------------- |
+| **GET**    | `/`      | No      | None                | `Category[]`   |
+| **GET**    | `/:id`   | No      | Params: `id`        | `Category`     |
+| **POST**   | `/`      | **Yes** | `{ "name": "..." }` | `Category`     |
+| **PUT**    | `/:id`   | **Yes** | `{ "name": "..." }` | `Category`     |
+| **DELETE** | `/:id`   | **Yes** | Params: `id`        | Message string |
 
 ---
 

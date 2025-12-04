@@ -4,6 +4,7 @@ export default function ModalsLayout() {
   return (
     <Stack screenOptions={{ headerShown: false, presentation: "modal" }}>
       <Stack.Screen name="createRecipe" />
+      <Stack.Screen name="editRecipe" />
       <Stack.Screen name="createIngredient" />
       <Stack.Screen name="createCategory" />
     </Stack>

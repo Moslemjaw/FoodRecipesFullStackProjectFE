@@ -1,17 +1,20 @@
+import { me } from "@/api/auth";
 import { getCategoryById } from "@/api/categories";
 import { addFavorite, checkFavorite, removeFavorite } from "@/api/favorites";
-import { getRecipeById } from "@/api/recipes";
+import { deleteRecipe, getRecipeById } from "@/api/recipes";
 import { RecipeIngredient } from "@/types/Recipe";
 import User from "@/types/User";
 import { getImageUrl } from "@/utils/imageUtils";
+import { formatCookingTime } from "@/utils/timeUtils";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Image,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -28,6 +31,14 @@ export default function RecipeDetails() {
   const id = params.id || (params as any).id;
 
   console.log("Recipe Details - ID:", id, "Params:", params);
+
+  // Get current user to check if they own the recipe
+  const { data: currentUser } = useQuery({
+    queryKey: ["currentUser"],
+    queryFn: me,
+    retry: 2,
+    retryDelay: 1000,
+  });
 
   const {
     data: recipe,
@@ -135,12 +146,83 @@ export default function RecipeDetails() {
     }
   };
 
+  // Delete recipe mutation
+  const deleteMutation = useMutation({
+    mutationFn: deleteRecipe,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recipes"] });
+      queryClient.invalidateQueries({ queryKey: ["myRecipes"] });
+      Alert.alert("Success", "Recipe deleted successfully!");
+      router.back();
+    },
+    onError: (error: any) => {
+      console.error("Delete recipe error:", error);
+      Alert.alert("Error", "Failed to delete recipe. Please try again.");
+    },
+  });
+
   const handleUserPress = (userId: string | User) => {
     const userID = typeof userId === "string" ? userId : userId._id;
     if (userID) {
-      router.push(`/(protected)/(tabs)/(home)/${userID}` as any);
+      // Use replace to prevent route stacking
+      router.replace(`/(protected)/user/${userID}` as any);
     }
   };
+
+  // Get all categories for the recipe - MUST be before any early returns
+  const categories = useMemo(() => {
+    if (!recipe) return [{ _id: "", name: "Uncategorized" }];
+
+    const categoriesList: Array<{ _id: string; name: string }> = [];
+
+    // 1. Try separate category query result
+    if (category?.name && category?._id) {
+      categoriesList.push({ _id: category._id, name: category.name });
+    }
+
+    // 2. Handle array case (Backend.md says categoryId: Category[])
+    if (Array.isArray(recipe.categoryId) && recipe.categoryId.length > 0) {
+      recipe.categoryId.forEach((cat: any) => {
+        if (typeof cat === "object" && cat.name && cat._id) {
+          // Avoid duplicates
+          if (!categoriesList.some((c) => c._id === cat._id)) {
+            categoriesList.push({ _id: cat._id, name: cat.name });
+          }
+        }
+      });
+    }
+    // 3. Try populated category on recipe (single object)
+    else if (
+      recipe.categoryId &&
+      typeof recipe.categoryId === "object" &&
+      "name" in recipe.categoryId
+    ) {
+      const cat = recipe.categoryId as any;
+      if (
+        cat._id &&
+        cat.name &&
+        !categoriesList.some((c) => c._id === cat._id)
+      ) {
+        categoriesList.push({ _id: cat._id, name: cat.name });
+      }
+    }
+
+    return categoriesList.length > 0
+      ? categoriesList
+      : [{ _id: "", name: "Uncategorized" }];
+  }, [recipe, category]);
+
+  // Check if current user owns this recipe - MUST be before any early returns
+  const isOwner = useMemo(() => {
+    if (!currentUser || !recipe) return false;
+    const recipeUserId =
+      typeof recipe.userId === "object" ? recipe.userId._id : recipe.userId;
+    const currentUserId =
+      typeof currentUser === "object" && currentUser._id
+        ? currentUser._id
+        : (currentUser as any)?.id;
+    return recipeUserId === currentUserId;
+  }, [currentUser, recipe]);
 
   if (isLoading) {
     return (
@@ -186,32 +268,6 @@ export default function RecipeDetails() {
     );
   }
 
-  const getCategoryName = () => {
-    // 1. Try separate category query result
-    if (category?.name) return category.name;
-
-    // 2. Try populated category on recipe
-    if (
-      recipe.categoryId &&
-      typeof recipe.categoryId === "object" &&
-      "name" in recipe.categoryId
-    ) {
-      return (recipe.categoryId as any).name;
-    }
-
-    // 3. Handle case where categoryId might be an array (based on Backend.md)
-    if (Array.isArray(recipe.categoryId) && recipe.categoryId.length > 0) {
-      const firstCat = recipe.categoryId[0];
-      if (typeof firstCat === "object" && "name" in firstCat) {
-        return firstCat.name;
-      }
-    }
-
-    return "Uncategorized";
-  };
-
-  const categoryName = getCategoryName();
-
   const userName =
     typeof recipe.userId === "object" && recipe.userId
       ? recipe.userId.name || recipe.userId.email
@@ -230,6 +286,48 @@ export default function RecipeDetails() {
     console.log(`Recipe Details - Original image:`, recipe.image);
     console.log(`Recipe Details - Processed image URL:`, recipeImageUrl);
   }
+
+  const handleDeleteRecipe = () => {
+    if (!recipe) return;
+    const performDelete = () => {
+      deleteMutation.mutate(recipe._id);
+    };
+
+    if (Platform.OS === "web") {
+      const confirmed = window.confirm(
+        `Are you sure you want to delete "${recipe.title}"? This action cannot be undone.`
+      );
+      if (confirmed) {
+        performDelete();
+      }
+    } else {
+      Alert.alert(
+        "Delete Recipe",
+        `Are you sure you want to delete "${recipe.title}"? This action cannot be undone.`,
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: performDelete,
+          },
+        ]
+      );
+    }
+  };
+
+  const handleEditRecipe = () => {
+    if (!recipe) return;
+    router.push({
+      pathname: "/(protected)/(modals)/editRecipe",
+      params: {
+        recipeId: recipe._id,
+      },
+    } as any);
+  };
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -252,7 +350,7 @@ export default function RecipeDetails() {
         </View>
       )}
 
-      {/* Header with Back Button and Favorite */}
+      {/* Header with Back Button, Edit/Delete (if owner), and Favorite */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -260,20 +358,39 @@ export default function RecipeDetails() {
         >
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.favoriteButton,
-            isFavoriteState && styles.favoriteButtonActive,
-          ]}
-          onPress={handleFavorite}
-          disabled={favoriteMutation.isPending}
-        >
-          <Ionicons
-            name={isFavoriteState ? "heart" : "heart-outline"}
-            size={24}
-            color={isFavoriteState ? "#EF4444" : "#111827"}
-          />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          {isOwner && (
+            <>
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={handleEditRecipe}
+              >
+                <Ionicons name="create-outline" size={24} color="#3B82F6" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={handleDeleteRecipe}
+                disabled={deleteMutation.isPending}
+              >
+                <Ionicons name="trash-outline" size={24} color="#EF4444" />
+              </TouchableOpacity>
+            </>
+          )}
+          <TouchableOpacity
+            style={[
+              styles.favoriteButton,
+              isFavoriteState && styles.favoriteButtonActive,
+            ]}
+            onPress={handleFavorite}
+            disabled={favoriteMutation.isPending}
+          >
+            <Ionicons
+              name={isFavoriteState ? "heart" : "heart-outline"}
+              size={24}
+              color={isFavoriteState ? "#EF4444" : "#111827"}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.content}>
@@ -284,12 +401,17 @@ export default function RecipeDetails() {
             {recipe.cookingTime && (
               <View style={styles.metaItem}>
                 <Ionicons name="time-outline" size={18} color="#6B7280" />
-                <Text style={styles.metaText}>{recipe.cookingTime} min</Text>
+                <Text style={styles.metaText}>
+                  {formatCookingTime(recipe.cookingTime)}
+                </Text>
               </View>
             )}
-            <View style={styles.metaItem}>
-              <Ionicons name="pricetag-outline" size={18} color="#6B7280" />
-              <Text style={styles.metaText}>{categoryName}</Text>
+            <View style={styles.categoriesContainer}>
+              {categories.map((cat) => (
+                <View key={cat._id} style={styles.categoryPill}>
+                  <Text style={styles.categoryPillText}>{cat.name}</Text>
+                </View>
+              ))}
             </View>
           </View>
         </View>
@@ -464,6 +586,43 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#FECACA",
   },
+  headerActions: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+  },
+  editButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  deleteButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
   content: {
     padding: 20,
     paddingTop: 0,
@@ -490,6 +649,25 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 14,
     color: "#6B7280",
+  },
+  categoriesContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    alignItems: "center",
+  },
+  categoryPill: {
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#3B82F6",
+  },
+  categoryPillText: {
+    fontSize: 12,
+    color: "#3B82F6",
+    fontWeight: "500",
   },
   userSection: {
     flexDirection: "row",

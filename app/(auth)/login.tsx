@@ -14,7 +14,7 @@ import { useMutation } from "@tanstack/react-query";
 import AuthContext from "@/context/AuthContext";
 import UserInfo from "@/types/UserInfo";
 import { login } from "@/api/auth";
-import { storeToken } from "@/api/storage";
+import { storeToken, storeUser } from "@/api/storage";
 
 export default function Index() {
   const [email, setEmail] = useState("");
@@ -30,6 +30,14 @@ export default function Index() {
       console.log("Login success, data:", data);
       if (data?.token) {
         await storeToken(data.token);
+        // Store user data if available (normalize id to _id)
+        if (data?.user) {
+          const normalizedUser = {
+            ...data.user,
+            _id: data.user.id || data.user._id,
+          };
+          await storeUser(normalizedUser);
+        }
         console.log("Token stored, setting authenticated to true");
         setIsAutheticated(true);
         // Small delay to ensure state is updated
