@@ -6,7 +6,7 @@ export default function Index() {
   const { isAutheticated } = useContext(AuthContext);
 
   if (isAutheticated) {
-    return <Redirect href={"/(protected)/(tabs)/(home)/" as any} />;
+    return <Redirect href={"/(tabs)/(home)/" as any} />;
   }
 
   return <Redirect href="/(auth)/login" />;

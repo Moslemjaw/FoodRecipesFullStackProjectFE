@@ -22,6 +22,6 @@ export const LiqmahBackground: React.FC<LiqmahBackgroundProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000', // Pure black for immersive dark mode
+    backgroundColor: Colors.base.background, // Pure white for light mode
   },
 });

@@ -28,7 +28,7 @@ import { me } from "@/api/auth";
 import { LiqmahBackground } from "@/components/Liqmah/LiqmahBackground";
 import { LiqmahText } from "@/components/Liqmah/LiqmahText";
 import { StarRating } from "@/components/Liqmah/StarRating";
-import { Colors, Layout, Typography } from "@/constants/LiqmahTheme";
+import { Colors, Layout, Typography, Shadows } from "@/constants/LiqmahTheme";
 import {
   X,
   Heart,
@@ -204,7 +204,7 @@ export default function RecipeDetails() {
     return (
       <LiqmahBackground>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary.mint} />
+          <ActivityIndicator size="large" color={Colors.primary.fern} />
         </View>
       </LiqmahBackground>
     );
@@ -218,7 +218,7 @@ export default function RecipeDetails() {
             Recipe not found
           </LiqmahText>
           <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
-            <LiqmahText color={Colors.primary.mint}>Go Back</LiqmahText>
+            <LiqmahText color={Colors.primary.fern}>Go Back</LiqmahText>
           </TouchableOpacity>
         </View>
       </LiqmahBackground>
@@ -253,7 +253,7 @@ export default function RecipeDetails() {
           activeOpacity={1}
           onPress={handleClose}
         >
-          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+          <BlurView intensity={20} tint="light" style={StyleSheet.absoluteFill} />
         </TouchableOpacity>
 
         {/* Slide-up Sheet */}
@@ -286,9 +286,9 @@ export default function RecipeDetails() {
 
               {/* Close Button */}
               <TouchableOpacity style={styles.closeButtonTop} onPress={handleClose}>
-                <BlurView intensity={80} tint="dark" style={styles.closeButtonBlur}>
-                  <X size={24} color="#FFFFFF" />
-                </BlurView>
+                <View style={styles.closeButtonBlur}>
+                  <X size={24} color={Colors.text.primary} />
+                </View>
               </TouchableOpacity>
 
               {/* Title Overlay */}
@@ -396,6 +396,27 @@ export default function RecipeDetails() {
                       </View>
                     );
                   })}
+                  {!isAutheticated && (
+                    <View style={styles.blurOverlay}>
+                      <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
+                      <View style={styles.signInPrompt}>
+                        <LiqmahText variant="headline" weight="bold" color={Colors.text.primary} style={styles.promptTitle}>
+                          Sign in to view ingredients
+                        </LiqmahText>
+                        <LiqmahText variant="body" color={Colors.text.secondary} style={styles.promptSubtitle}>
+                          Create an account or sign in to see the full recipe details
+                        </LiqmahText>
+                        <TouchableOpacity
+                          style={styles.signInButton}
+                          onPress={() => router.push("/(auth)/login")}
+                        >
+                          <LiqmahText variant="body" weight="semiBold" color={Colors.text.onPrimary}>
+                            Sign In
+                          </LiqmahText>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
                 </View>
               </View>
 
@@ -410,6 +431,27 @@ export default function RecipeDetails() {
                       ? recipe.instructions.join("\n\n")
                       : recipe.instructions}
                   </LiqmahText>
+                  {!isAutheticated && (
+                    <View style={styles.blurOverlay}>
+                      <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
+                      <View style={styles.signInPrompt}>
+                        <LiqmahText variant="headline" weight="bold" color={Colors.text.primary} style={styles.promptTitle}>
+                          Sign in to view instructions
+                        </LiqmahText>
+                        <LiqmahText variant="body" color={Colors.text.secondary} style={styles.promptSubtitle}>
+                          Create an account or sign in to see how to cook this recipe
+                        </LiqmahText>
+                        <TouchableOpacity
+                          style={styles.signInButton}
+                          onPress={() => router.push("/(auth)/login")}
+                        >
+                          <LiqmahText variant="body" weight="semiBold" color={Colors.text.onPrimary}>
+                            Sign In
+                          </LiqmahText>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
                 </View>
               </View>
             </ScrollView>
@@ -433,10 +475,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: height * 0.9,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
+    borderTopLeftRadius: Layout.radius.modal,
+    borderTopRightRadius: Layout.radius.modal,
     overflow: "hidden",
     backgroundColor: Colors.base.background,
+    ...Shadows.floating,
   },
   loadingContainer: {
     flex: 1,
@@ -481,7 +524,8 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: "center",
     alignItems: "center",
-    overflow: "hidden",
+    backgroundColor: Colors.base.surface,
+    ...Shadows.card,
   },
   titleOverlay: {
     position: "absolute",
@@ -521,7 +565,7 @@ const styles = StyleSheet.create({
     marginBottom: Layout.spacing.xl,
     paddingBottom: Layout.spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.base.border.light,
+    borderBottomColor: Colors.base.border.medium,
   },
   ratingRow: {
     flexDirection: "row",
@@ -541,7 +585,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: Layout.spacing.md,
-    backgroundColor: Colors.base.surface,
+    backgroundColor: Colors.base.paper,
     borderRadius: Layout.radius.card,
     marginBottom: Layout.spacing.xl,
   },
@@ -549,7 +593,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: Colors.base.cloud,
+    backgroundColor: Colors.base.border.light,
     justifyContent: "center",
     alignItems: "center",
     marginRight: Layout.spacing.md,
@@ -567,22 +611,24 @@ const styles = StyleSheet.create({
     marginBottom: Layout.spacing.lg,
   },
   ingredientsList: {
-    backgroundColor: Colors.base.surface,
+    backgroundColor: Colors.base.paper,
     borderRadius: Layout.radius.card,
     padding: Layout.spacing.lg,
+    position: "relative",
+    overflow: "hidden",
   },
   ingredientItem: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: Layout.spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.base.border.light,
+    borderBottomColor: Colors.base.border.medium,
   },
   ingredientBullet: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.primary.mint,
+    backgroundColor: Colors.primary.fern,
     marginRight: Layout.spacing.md,
   },
   ingredientText: {
@@ -590,12 +636,44 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   instructionsContainer: {
-    backgroundColor: Colors.base.surface,
+    backgroundColor: Colors.base.paper,
     borderRadius: Layout.radius.card,
     padding: Layout.spacing.lg,
+    position: "relative",
+    overflow: "hidden",
   },
   instructionsText: {
     lineHeight: 28,
-    color: Colors.text.secondary,
+    color: Colors.text.primary,
+  },
+  blurOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  signInPrompt: {
+    alignItems: "center",
+    padding: Layout.spacing.xl,
+    maxWidth: "90%",
+  },
+  promptTitle: {
+    marginBottom: Layout.spacing.sm,
+    textAlign: "center",
+  },
+  promptSubtitle: {
+    marginBottom: Layout.spacing.lg,
+    textAlign: "center",
+  },
+  signInButton: {
+    backgroundColor: Colors.primary.fern,
+    paddingHorizontal: Layout.spacing.xl,
+    paddingVertical: Layout.spacing.md,
+    borderRadius: Layout.radius.button,
+    ...Shadows.button.fern,
   },
 });

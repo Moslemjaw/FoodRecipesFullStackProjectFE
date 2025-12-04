@@ -48,17 +48,18 @@ export const LiqmahCard: React.FC<LiqmahCardProps> = ({
 
 const styles = StyleSheet.create({
   base: {
-    backgroundColor: Colors.base.surface,
+    backgroundColor: Colors.base.paper,
     borderRadius: Layout.radius.card,
     padding: Layout.spacing.md,
   },
   elevated: {
     ...Shadows.card,
+    backgroundColor: Colors.base.surface,
   },
   outlined: {
     borderWidth: 1,
-    borderColor: Colors.base.border.strong,
-    backgroundColor: 'transparent',
+    borderColor: Colors.base.border.medium,
+    backgroundColor: Colors.base.surface,
   },
   hero: {
     backgroundColor: Colors.base.surface,

@@ -64,11 +64,14 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <AuthContext.Provider value={{ isAutheticated, setIsAutheticated }}>
         <SafeAreaProvider style={{ flex: 1 }} onLayout={onLayoutRootView}>
-          <StatusBar style="light" backgroundColor="#000000" translucent={true} />
+          <StatusBar style="dark" backgroundColor="#FFFFFF" translucent={true} />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(protected)" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="(modals)" options={{ presentation: "modal" }} />
+            <Stack.Screen name="category" />
+            <Stack.Screen name="user" />
             <Stack.Screen name="recipe" options={{ presentation: 'card', animation: 'slide_from_bottom' }} />
           </Stack>
         </SafeAreaProvider>

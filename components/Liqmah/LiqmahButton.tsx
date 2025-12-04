@@ -27,7 +27,7 @@ export const LiqmahButton: React.FC<LiqmahButtonProps> = ({
   const content = (
     <View style={styles.contentContainer}>
       {loading ? (
-        <ActivityIndicator color={isPrimary ? '#FFF' : Colors.primary.mint} />
+        <ActivityIndicator color={isPrimary ? '#FFF' : Colors.primary.fern} />
       ) : (
         <>
           {icon && <View style={styles.iconContainer}>{icon}</View>}
@@ -38,10 +38,10 @@ export const LiqmahButton: React.FC<LiqmahButtonProps> = ({
               isPrimary 
                 ? '#FFF' 
                 : isOutline 
-                ? Colors.primary.mint 
+                ? Colors.primary.fern 
                 : isSecondary 
                 ? Colors.text.primary 
-                : Colors.primary.mint
+                : Colors.primary.fern
             }
           >
             {label}
@@ -60,7 +60,7 @@ export const LiqmahButton: React.FC<LiqmahButtonProps> = ({
         {...props}
       >
         <LinearGradient
-          colors={[Colors.primary.mint, '#34D399'] as any}
+          colors={Colors.gradients.nature as any}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
@@ -131,17 +131,17 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   primary: {
-    ...Shadows.button.mint,
+    ...Shadows.button.fern,
   },
   secondary: {
-    backgroundColor: Colors.base.surface,
+    backgroundColor: Colors.base.paper,
     borderWidth: 1,
-    borderColor: Colors.base.border.strong,
+    borderColor: Colors.base.border.medium,
   },
   outline: {
     backgroundColor: 'transparent',
     borderWidth: 1.5,
-    borderColor: Colors.primary.mint,
+    borderColor: Colors.primary.fern,
   },
   tertiary: {
     backgroundColor: 'transparent',

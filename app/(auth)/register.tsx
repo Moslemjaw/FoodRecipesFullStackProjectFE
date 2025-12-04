@@ -37,7 +37,7 @@ export default function Register() {
     onSuccess: async (data) => {
       await storeToken(data.token);
       setIsAutheticated(true);
-      router.replace("/(protected)/(tabs)/index" as any);
+      router.replace("/(tabs)/(home)/" as any);
     },
   });
 

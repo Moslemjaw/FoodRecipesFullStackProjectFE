@@ -2,92 +2,102 @@ import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, In
 
 export const Colors = {
   primary: {
-    mint: "#3FC380",
-    aqua: "#42B8B2",
-    saffron: "#FFD464",
+    fern: "#5B9A3A", // Brighter, fresher green for light mode
+    sage: "#7FB069", // Softer sage green
+    moss: "#6B8E4F", // Medium green
+    mint: "#B8E5C8", // Lighter mint accent
   },
   base: {
     white: "#FFFFFF",
     black: "#000000",
-    charcoal: "#111827",
-    slate: "#4B5563",
-    cloud: "#0A0A0A", // Very dark gray
-    surface: "#1A1A1A", // Dark surface
-    background: "#000000", // Pure black for immersive mode
+    charcoal: "#1F2937", // Dark charcoal for text
+    slate: "#6B7280", // Medium gray
+    cloud: "#F8F9FA", // Off-white background
+    surface: "#FFFFFF", // White surface
+    background: "#FFFFFF", // Pure white background
+    paper: "#FAFAFA", // Slightly off-white for cards
     glass: {
-      light: "rgba(0, 0, 0, 0.4)", // Dark glass overlay
-      medium: "rgba(0, 0, 0, 0.6)",
-      heavy: "rgba(0, 0, 0, 0.8)",
+      light: "rgba(255, 255, 255, 0.7)", // Light glass overlay
+      medium: "rgba(255, 255, 255, 0.85)",
+      heavy: "rgba(255, 255, 255, 0.95)",
     },
     border: {
-      light: "rgba(255, 255, 255, 0.1)",
-      medium: "rgba(255, 255, 255, 0.15)",
-      strong: "rgba(255, 255, 255, 0.25)",
+      light: "rgba(0, 0, 0, 0.08)",
+      medium: "rgba(0, 0, 0, 0.12)",
+      strong: "rgba(0, 0, 0, 0.2)",
     },
   },
   text: {
-    primary: "#FFFFFF", // White text on dark
-    secondary: "#D1D5DB", // Light gray
-    tertiary: "#9CA3AF", // Medium gray
-    onPrimary: "#000000",
-    onGlass: "#FFFFFF",
+    primary: "#1F2937", // Dark charcoal for primary text
+    secondary: "#6B7280", // Medium gray for secondary
+    tertiary: "#9CA3AF", // Light gray for tertiary
+    onPrimary: "#FFFFFF", // White text on colored backgrounds
+    onGlass: "#1F2937",
     overlay: "#FFFFFF", // For text on images
-    overlaySecondary: "rgba(255, 255, 255, 0.85)",
+    overlaySecondary: "rgba(255, 255, 255, 0.9)",
   },
   gradients: {
     // Overlay gradients for text readability on images
-    imageOverlay: ["transparent", "rgba(0, 0, 0, 0.4)", "rgba(0, 0, 0, 0.85)"],
-    imageOverlayStrong: ["transparent", "rgba(0, 0, 0, 0.6)", "rgba(0, 0, 0, 0.98)"],
-    topOverlay: ["rgba(0, 0, 0, 0.5)", "rgba(0, 0, 0, 0.2)", "transparent"],
-    bottomOverlay: ["transparent", "rgba(0, 0, 0, 0.7)", "rgba(0, 0, 0, 0.98)"],
-    actionButton: ["rgba(0, 0, 0, 0.3)", "rgba(0, 0, 0, 0.5)"], // For floating action buttons
+    imageOverlay: ["transparent", "rgba(0, 0, 0, 0.3)", "rgba(0, 0, 0, 0.7)"],
+    imageOverlayStrong: ["transparent", "rgba(0, 0, 0, 0.5)", "rgba(0, 0, 0, 0.9)"],
+    topOverlay: ["rgba(0, 0, 0, 0.4)", "rgba(0, 0, 0, 0.15)", "transparent"],
+    bottomOverlay: ["transparent", "rgba(0, 0, 0, 0.6)", "rgba(0, 0, 0, 0.9)"],
+    actionButton: ["rgba(91, 154, 58, 0.85)", "rgba(127, 176, 105, 0.9)"], // Fresher green gradient
+    nature: ["#7FB069", "#6B8E4F", "#5B9A3A"], // Updated nature gradient
   },
 };
 
 export const Shadows = {
   floating: {
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.06,
     shadowRadius: 32,
     elevation: 12,
   },
   button: {
+    fern: {
+      shadowColor: "#5B9A3A",
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.15,
+      shadowRadius: 16,
+      elevation: 6,
+    },
     mint: {
-      shadowColor: "#3FC380",
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.25,
+      shadowColor: "#5B9A3A",
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.15,
       shadowRadius: 16,
       elevation: 6,
     },
   },
   dock: {
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 8,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 20,
+    elevation: 10,
   },
   glassCard: {
-    shadowColor: "transparent", // No shadow for glass cards in clean mode
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 12,
+    elevation: 3,
   },
   card: {
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 2,
+    shadowOpacity: 0.03,
+    shadowRadius: 16,
+    elevation: 4,
   },
   aiBubble: {
-    shadowColor: "rgba(17, 24, 39, 0.03)",
+    shadowColor: "rgba(0, 0, 0, 0.02)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
-    shadowRadius: 12,
-    elevation: 1,
+    shadowRadius: 8,
+    elevation: 2,
   }
 };
 
@@ -136,13 +146,13 @@ export const Typography = {
 
 export const Layout = {
   radius: {
-    card: 32, // Softer, more organic
-    dock: 40,
-    button: 20, // Pill shape
+    card: 28, // Modern rounded corners
+    dock: 32,
+    button: 24, // More rounded buttons
     input: 20,
     pill: 9999,
-    modal: 40,
-    bubble: 24,
+    modal: 32,
+    bubble: 20,
   },
   spacing: {
     xs: 4,

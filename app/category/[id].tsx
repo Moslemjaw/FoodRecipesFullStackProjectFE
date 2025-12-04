@@ -149,7 +149,8 @@ const CategoryDetails = () => {
           </Text>
           <TouchableOpacity
             style={styles.createButton}
-            onPress={() => router.push("/(protected)/(modals)/createRecipe")}
+            onPress={() => router.push("/(modals)/createRecipe")}
+            activeOpacity={0.8}
           >
             <Text style={styles.createButtonText}>Add a Recipe</Text>
           </TouchableOpacity>
