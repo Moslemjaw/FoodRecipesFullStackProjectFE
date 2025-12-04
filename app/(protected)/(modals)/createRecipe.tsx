@@ -146,7 +146,10 @@ export default function CreateRecipe() {
       quality: 0.8,
     });
 
+    console.log("Image picker result:", result); // Add this
+
     if (!result.canceled) {
+      console.log("Image URI set to:", result.assets[0].uri); // Add this
       setImage(result.assets[0].uri);
     }
   };

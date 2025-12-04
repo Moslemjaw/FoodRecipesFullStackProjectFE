@@ -1,27 +1,32 @@
-import React, { useState, useMemo } from "react";
+import { getAllCategories } from "@/api/categories";
+import { getAllRecipes } from "@/api/recipes";
+import Category from "@/types/Category";
+import Recipe from "@/types/Recipe";
+import { getImageUrl } from "@/utils/imageUtils";
+import { Ionicons } from "@expo/vector-icons";
+import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
+import React, { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  RefreshControl,
   StyleSheet,
   Text,
-  View,
   TextInput,
-  FlatList,
   TouchableOpacity,
-  Image,
-  ActivityIndicator,
-  RefreshControl,
+  View,
 } from "react-native";
-import { useQuery } from "@tanstack/react-query";
-import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { getAllRecipes } from "@/api/recipes";
-import { getAllCategories } from "@/api/categories";
-import { getImageUrl } from "@/utils/imageUtils";
-import Recipe from "@/types/Recipe";
-import Category from "@/types/Category";
+
+type SortBy = "none" | "alphabetical" | "time";
+type SortDirection = "asc" | "desc";
 
 export default function Explore() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortBy>("none");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const router = useRouter();
 
   const {
@@ -72,8 +77,25 @@ export default function Explore() {
       });
     }
 
+    // Apply sorting
+    if (sortBy !== "none") {
+      filtered = [...filtered].sort((a, b) => {
+        let comparison = 0;
+
+        if (sortBy === "alphabetical") {
+          comparison = a.title.localeCompare(b.title);
+        } else if (sortBy === "time") {
+          const timeA = a.cookingTime || 0;
+          const timeB = b.cookingTime || 0;
+          comparison = timeA - timeB;
+        }
+
+        return sortDirection === "desc" ? -comparison : comparison;
+      });
+    }
+
     return filtered;
-  }, [recipes, searchQuery, selectedCategory]);
+  }, [recipes, searchQuery, selectedCategory, sortBy, sortDirection]);
 
   const handleRecipePress = (recipeId: string) => {
     router.push(`/(protected)/recipe/${recipeId}` as any);
@@ -192,6 +214,73 @@ export default function Explore() {
         </View>
       </View>
 
+      {/* Sort Controls */}
+      <View style={styles.sortContainer}>
+        <View style={styles.sortRow}>
+          <Text style={styles.sortLabel}>Sort by:</Text>
+          <View style={styles.sortOptions}>
+            <TouchableOpacity
+              style={[
+                styles.sortChip,
+                sortBy === "alphabetical" && styles.sortChipSelected,
+              ]}
+              onPress={() =>
+                setSortBy(sortBy === "alphabetical" ? "none" : "alphabetical")
+              }
+            >
+              <Ionicons
+                name="text-outline"
+                size={14}
+                color={sortBy === "alphabetical" ? "#FFFFFF" : "#6B7280"}
+              />
+              <Text
+                style={[
+                  styles.sortChipText,
+                  sortBy === "alphabetical" && styles.sortChipTextSelected,
+                ]}
+              >
+                A-Z
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.sortChip,
+                sortBy === "time" && styles.sortChipSelected,
+              ]}
+              onPress={() => setSortBy(sortBy === "time" ? "none" : "time")}
+            >
+              <Ionicons
+                name="time-outline"
+                size={14}
+                color={sortBy === "time" ? "#FFFFFF" : "#6B7280"}
+              />
+              <Text
+                style={[
+                  styles.sortChipText,
+                  sortBy === "time" && styles.sortChipTextSelected,
+                ]}
+              >
+                Time
+              </Text>
+            </TouchableOpacity>
+          </View>
+          {sortBy !== "none" && (
+            <TouchableOpacity
+              style={styles.directionButton}
+              onPress={() =>
+                setSortDirection(sortDirection === "asc" ? "desc" : "asc")
+              }
+            >
+              <Ionicons
+                name={sortDirection === "asc" ? "arrow-up" : "arrow-down"}
+                size={18}
+                color="#3B82F6"
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
       {/* Category Filters */}
       {!categoriesLoading && categories.length > 0 && (
         <View style={styles.categoriesContainer}>
@@ -278,6 +367,56 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: "#111827",
+  },
+  sortContainer: {
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  sortRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  sortLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#374151",
+  },
+  sortOptions: {
+    flexDirection: "row",
+    gap: 8,
+    flex: 1,
+  },
+  sortChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: "#F3F4F6",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  sortChipSelected: {
+    backgroundColor: "#3B82F6",
+    borderColor: "#3B82F6",
+  },
+  sortChipText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#6B7280",
+  },
+  sortChipTextSelected: {
+    color: "#FFFFFF",
+  },
+  directionButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "#EFF6FF",
   },
   categoriesContainer: {
     backgroundColor: "#FFFFFF",
