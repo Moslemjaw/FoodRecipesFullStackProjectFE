@@ -25,7 +25,7 @@ const createRecipe = async (
   title: string,
   instructions: string,
   cookingTime: number,
-  categoryId: string,
+  categoryIds: string[],
   ingredients: RecipeIngredient[],
   image?: string
 ): Promise<Recipe> => {
@@ -33,7 +33,12 @@ const createRecipe = async (
   formData.append("title", title);
   formData.append("instructions", instructions);
   formData.append("cookingTime", cookingTime.toString());
-  formData.append("categoryId", categoryId);
+  // Handle multiple categories - send as array or comma-separated string
+  if (Array.isArray(categoryIds) && categoryIds.length > 0) {
+    categoryIds.forEach((catId) => {
+      formData.append("categoryId", catId);
+    });
+  }
   formData.append("ingredients", JSON.stringify(ingredients));
 
   if (image) {
@@ -77,7 +82,7 @@ const updateRecipe = async (
   title: string,
   instructions: string,
   cookingTime: number,
-  categoryId: string,
+  categoryIds: string[],
   ingredients: RecipeIngredient[],
   image?: string
 ): Promise<Recipe> => {
@@ -85,7 +90,12 @@ const updateRecipe = async (
   formData.append("title", title);
   formData.append("instructions", instructions);
   formData.append("cookingTime", cookingTime.toString());
-  formData.append("categoryId", categoryId);
+  // Handle multiple categories - send as array or comma-separated string
+  if (Array.isArray(categoryIds) && categoryIds.length > 0) {
+    categoryIds.forEach((catId) => {
+      formData.append("categoryId", catId);
+    });
+  }
   formData.append("ingredients", JSON.stringify(ingredients));
 
   if (image) {
@@ -146,12 +156,60 @@ const filterOutIngredients = async (
   return data;
 };
 
+const getFeedRecipes = async (): Promise<Recipe[]> => {
+  // Get all recipes and filter by followed users and this week
+  const { data: allRecipes } = await instance.get("/recipes");
+  const { data: following } = await instance.get("/follow/following");
+
+  // Get list of followed user IDs
+  const followedUserIds = following.map((follow: any) => {
+    const followingId =
+      typeof follow.followingID === "object"
+        ? follow.followingID._id
+        : follow.followingID;
+    return followingId;
+  });
+
+  // Calculate date for one week ago
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+  // Filter recipes from followed users created in the last week
+  const feedRecipes = allRecipes.filter((recipe: any) => {
+    const recipeUserId =
+      typeof recipe.userId === "object" ? recipe.userId._id : recipe.userId;
+
+    // Check if recipe is from a followed user
+    if (!followedUserIds.includes(recipeUserId)) {
+      return false;
+    }
+
+    // Check if recipe was created in the last week
+    if (recipe.createdAt) {
+      const recipeDate = new Date(recipe.createdAt);
+      return recipeDate >= oneWeekAgo;
+    }
+
+    return false;
+  });
+
+  // Sort by most recent (newest first)
+  feedRecipes.sort((a: any, b: any) => {
+    const dateA = new Date(a.createdAt || 0).getTime();
+    const dateB = new Date(b.createdAt || 0).getTime();
+    return dateB - dateA; // Descending order (newest first)
+  });
+
+  return feedRecipes;
+};
+
 export {
   createRecipe,
   deleteRecipe,
   filterByIngredients,
   filterOutIngredients,
   getAllRecipes,
+  getFeedRecipes,
   getMyRecipes,
   getRecipeById,
   getRecipesByCategory,

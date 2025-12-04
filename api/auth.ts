@@ -29,13 +29,43 @@ const register = async (userInfo: UserInfo, image: string, name: string) => {
 };
 
 const me = async () => {
-  const { data } = await instance.get("/auth/me");
-  return data;
+  try {
+    // First try to get user from storage
+    const { getUser, decodeToken, getToken, storeUser } = await import("./storage");
+    const storedUser = await getUser();
+    if (storedUser) {
+      return storedUser;
+    }
+
+    // If no stored user, try to decode token and fetch user by ID
+    const token = await getToken();
+    if (token) {
+      const decoded = decodeToken(token);
+      if (decoded?.id || decoded?.userId || decoded?._id) {
+        const userId = decoded.id || decoded.userId || decoded._id;
+        try {
+          const { getUserById } = await import("./users");
+          const user = await getUserById(userId);
+          // Store user for future use
+          await storeUser(user);
+          return user;
+        } catch (fetchError) {
+          console.error("Error fetching user by ID:", fetchError);
+          // Return null instead of throwing to prevent route errors
+          return null;
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error in me() function:", error);
+    // Return null instead of throwing to prevent route errors
+    return null;
+  }
+
+  // Return null if no user found instead of throwing
+  return null;
 };
 
-const getAllUsers = async () => {
-  const { data } = await instance.get("/auth/users");
-  return data;
-};
+// Note: getAllUsers is in api/users.ts (uses /users endpoint per Backend.md)
 
-export { getAllUsers, login, me, register };
+export { login, me, register };

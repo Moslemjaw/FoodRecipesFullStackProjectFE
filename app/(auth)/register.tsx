@@ -15,7 +15,7 @@ import { useMutation } from "@tanstack/react-query";
 import * as ImagePicker from "expo-image-picker";
 import AuthContext from "@/context/AuthContext";
 import { register } from "@/api/auth";
-import { storeToken } from "@/api/storage";
+import { storeToken, storeUser } from "@/api/storage";
 
 export default function Register() {
   const [name, setName] = useState("");
@@ -30,6 +30,14 @@ export default function Register() {
     mutationFn: () => register({ email, password }, image || "", name),
     onSuccess: async (data) => {
       await storeToken(data.token);
+      // Store user data if available (normalize id to _id)
+      if (data?.user) {
+        const normalizedUser = {
+          ...data.user,
+          _id: data.user.id || data.user._id,
+        };
+        await storeUser(normalizedUser);
+      }
       setIsAutheticated(true);
       router.replace("/(protected)/(tabs)/index" as any);
     },

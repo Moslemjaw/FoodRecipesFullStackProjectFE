@@ -1,5 +1,6 @@
 import { getAllCategories } from "@/api/categories";
 import { getAllRecipes } from "@/api/recipes";
+import { getImageUrl } from "@/utils/imageUtils";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
@@ -7,6 +8,7 @@ import React from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -46,39 +48,90 @@ const Home = () => {
   const categoryData = categories?.map((category) => {
     const categoryRecipes =
       recipes?.filter((recipe) => {
-        const recipeCatId =
-          typeof recipe.categoryId === "object"
-            ? recipe.categoryId?._id
-            : recipe.categoryId;
-        return recipeCatId === category._id;
+        // Check if recipe has this category
+        const rCat = recipe.categoryId;
+
+        // Handle array case (Backend.md says categoryId: Category[])
+        if (Array.isArray(rCat)) {
+          return rCat.some((c) => {
+            const cId = typeof c === "object" ? c._id : c;
+            return cId === category._id;
+          });
+        }
+
+        // Handle single object/string case (legacy/current behavior fallback)
+        const cId =
+          typeof rCat === "object"
+            ? (rCat as any)?._id || (rCat as any)?.id
+            : rCat;
+
+        return cId === category._id;
       }) || [];
+
+    // Find first recipe with an image
+    const firstRecipeWithImage = categoryRecipes.find((recipe) => recipe.image);
+    const categoryImage = firstRecipeWithImage
+      ? getImageUrl(firstRecipeWithImage.image)
+      : null;
 
     return {
       ...category,
       count: categoryRecipes.length,
+      image: categoryImage,
     };
   });
 
-  const renderCategory = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={styles.cardContainer}
-      onPress={() => router.push(`/(protected)/category/${item._id}`)}
-      activeOpacity={0.9}
-    >
-      <View style={styles.iconContainer}>
-        <Ionicons name="restaurant-outline" size={32} color="#3FC380" />
-      </View>
-      <View style={styles.textContainer}>
-        <Text style={styles.categoryName}>{item.name}</Text>
-        <Text style={styles.recipeCount}>
-          {item.count} {item.count === 1 ? "Recipe" : "Recipes"}
-        </Text>
-      </View>
-      <View style={styles.arrowContainer}>
-        <Ionicons name="arrow-forward" size={20} color="#42B8B2" />
-      </View>
-    </TouchableOpacity>
-  );
+  const renderCategory = ({ item }: { item: any }) => {
+    const hasImage = !!item.image;
+    return (
+      <TouchableOpacity
+        style={styles.cardContainer}
+        onPress={() => router.push(`/(protected)/category/${item._id}`)}
+        activeOpacity={0.9}
+      >
+        {hasImage ? (
+          <Image
+            source={{ uri: item.image }}
+            style={styles.backgroundImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={styles.iconContainer}>
+            <Ionicons name="restaurant-outline" size={32} color="#3FC380" />
+          </View>
+        )}
+        <View style={[styles.overlay, hasImage && styles.overlayWithImage]}>
+          <View style={styles.overlayContent}>
+            <View style={styles.arrowContainer}>
+              <Ionicons
+                name="arrow-forward"
+                size={20}
+                color={hasImage ? "#FFFFFF" : "#42B8B2"}
+              />
+            </View>
+            <View style={styles.textContainer}>
+              <Text
+                style={[
+                  styles.categoryName,
+                  hasImage && styles.categoryNameWithImage,
+                ]}
+              >
+                {item.name}
+              </Text>
+              <Text
+                style={[
+                  styles.recipeCount,
+                  hasImage && styles.recipeCountWithImage,
+                ]}
+              >
+                {item.count} {item.count === 1 ? "Recipe" : "Recipes"}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -160,6 +213,33 @@ const styles = StyleSheet.create({
     elevation: 4, // Android shadow
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.6)",
+    overflow: "hidden",
+    position: "relative",
+  },
+  backgroundImage: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: "100%",
+    height: "100%",
+  },
+  overlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1,
+  },
+  overlayWithImage: {
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  overlayContent: {
+    flex: 1,
+    justifyContent: "space-between",
+    padding: 16,
   },
   iconContainer: {
     width: 48,
@@ -180,14 +260,24 @@ const styles = StyleSheet.create({
     color: "#111111",
     marginBottom: 4,
   },
+  categoryNameWithImage: {
+    color: "#FFFFFF",
+    textShadowColor: "rgba(0, 0, 0, 0.3)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
   recipeCount: {
     fontSize: 14,
     color: "#6B7280",
     fontWeight: "500",
   },
+  recipeCountWithImage: {
+    color: "#FFFFFF",
+    textShadowColor: "rgba(0, 0, 0, 0.3)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
   arrowContainer: {
-    position: "absolute",
-    top: 16,
-    right: 16,
+    alignSelf: "flex-end",
   },
 });

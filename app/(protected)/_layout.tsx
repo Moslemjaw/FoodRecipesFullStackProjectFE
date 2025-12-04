@@ -15,6 +15,7 @@ export default function ProtectedLayout() {
       <Stack.Screen name="(modals)" options={{ presentation: "modal" }} />
       <Stack.Screen name="category" />
       <Stack.Screen name="recipe" />
+      <Stack.Screen name="user" />
     </Stack>
   );
 }
