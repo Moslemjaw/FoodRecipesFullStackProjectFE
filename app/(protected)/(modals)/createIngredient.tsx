@@ -1,18 +1,22 @@
 import React, { useState } from "react";
 import {
   StyleSheet,
-  Text,
   View,
-  TextInput,
   TouchableOpacity,
   Alert,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createIngredient } from "@/api/ingredients";
+import { LiqmahBackground } from "@/components/Liqmah/LiqmahBackground";
+import { LiqmahGlass } from "@/components/Liqmah/LiqmahGlass";
+import { LiqmahText } from "@/components/Liqmah/LiqmahText";
+import { LiqmahInput } from "@/components/Liqmah/LiqmahInput";
+import { LiqmahButton } from "@/components/Liqmah/LiqmahButton";
+import { Colors, Layout } from "@/constants/LiqmahTheme";
+import { X, Carrot, Info } from "lucide-react-native";
 
 export default function CreateIngredient() {
   const router = useRouter();
@@ -50,147 +54,113 @@ export default function CreateIngredient() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="close" size={28} color="#111827" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Create Ingredient</Text>
-        <TouchableOpacity
-          onPress={handleSubmit}
-          disabled={isPending}
-          style={[
-            styles.submitButton,
-            isPending && styles.submitButtonDisabled,
-          ]}
-        >
-          <Text style={styles.submitButtonText}>
-            {isPending ? "..." : "Create"}
-          </Text>
-        </TouchableOpacity>
-      </View>
+    <LiqmahBackground>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <LiqmahGlass intensity={95} style={styles.content}>
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
+              <X size={24} color={Colors.text.primary} />
+            </TouchableOpacity>
+            <LiqmahText variant="headline" weight="bold" style={styles.headerTitle}>Create Ingredient</LiqmahText>
+            <View style={styles.headerSpacer} />
+          </View>
 
-      {/* Error Message */}
-      {error ? (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      ) : null}
+          {/* Error Message */}
+          {error ? (
+            <View style={styles.errorContainer}>
+              <LiqmahText style={styles.errorText} color="#DC2626">{error}</LiqmahText>
+            </View>
+          ) : null}
 
-      {/* Content */}
-      <View style={styles.content}>
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Ingredient Name</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g., Tomato, Onion, Garlic..."
-            placeholderTextColor="#9CA3AF"
-            value={name}
-            onChangeText={setName}
-            autoCapitalize="words"
-            autoFocus
-          />
-        </View>
+          <View style={styles.form}>
+            <LiqmahInput
+              label="Ingredient Name"
+              placeholder="e.g., Tomato, Onion, Garlic..."
+              value={name}
+              onChangeText={setName}
+              autoCapitalize="words"
+              autoFocus
+              icon={<Carrot size={20} color={Colors.text.tertiary} />}
+            />
 
-        <View style={styles.infoContainer}>
-          <Ionicons
-            name="information-circle-outline"
-            size={20}
-            color="#6B7280"
-          />
-          <Text style={styles.infoText}>
-            Add a new ingredient that can be used in recipes
-          </Text>
-        </View>
-      </View>
-    </KeyboardAvoidingView>
+            <View style={styles.infoContainer}>
+              <Info size={20} color={Colors.text.secondary} />
+              <LiqmahText variant="caption" color={Colors.text.secondary} style={styles.infoText}>
+                Add a new ingredient that can be used in recipes
+              </LiqmahText>
+            </View>
+
+            <LiqmahButton
+              label="Create Ingredient"
+              onPress={handleSubmit}
+              loading={isPending}
+              style={styles.submitButton}
+            />
+          </View>
+        </LiqmahGlass>
+      </KeyboardAvoidingView>
+    </LiqmahBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    padding: Layout.spacing.lg,
+    justifyContent: "center",
+  },
+  content: {
+    borderRadius: Layout.radius.modal,
+    padding: Layout.spacing.lg,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: 60,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    marginBottom: Layout.spacing.xl,
+  },
+  closeButton: {
+    padding: 4,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#111827",
+    color: Colors.text.primary,
   },
-  submitButton: {
-    backgroundColor: "#3B82F6",
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "600",
+  headerSpacer: {
+    width: 32,
   },
   errorContainer: {
-    backgroundColor: "#FEE2E2",
+    backgroundColor: "rgba(254, 226, 226, 0.5)",
     padding: 12,
-    marginHorizontal: 16,
-    marginTop: 8,
     borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#EF4444",
   },
   errorText: {
-    color: "#DC2626",
-    fontSize: 14,
     textAlign: "center",
   },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  inputContainer: {
-    marginBottom: 24,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: "#F9FAFB",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: "#111827",
+  form: {
+    gap: Layout.spacing.lg,
   },
   infoContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F3F4F6",
+    backgroundColor: Colors.base.glass.light,
     padding: 12,
     borderRadius: 8,
     gap: 8,
+    borderWidth: 1,
+    borderColor: Colors.base.border.light,
   },
   infoText: {
     flex: 1,
-    fontSize: 14,
-    color: "#6B7280",
     lineHeight: 20,
+  },
+  submitButton: {
+    marginTop: Layout.spacing.md,
   },
 });

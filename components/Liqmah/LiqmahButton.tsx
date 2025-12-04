@@ -5,7 +5,7 @@ import { Colors, Layout, Shadows } from '@/constants/LiqmahTheme';
 import { LinearGradient } from 'expo-linear-gradient';
 
 interface LiqmahButtonProps extends TouchableOpacityProps {
-  variant?: 'primary' | 'secondary' | 'tertiary';
+  variant?: 'primary' | 'secondary' | 'tertiary' | 'outline';
   label: string;
   icon?: React.ReactNode;
   loading?: boolean;
@@ -22,6 +22,7 @@ export const LiqmahButton: React.FC<LiqmahButtonProps> = ({
 }) => {
   const isPrimary = variant === 'primary';
   const isSecondary = variant === 'secondary';
+  const isOutline = variant === 'outline';
   
   const content = (
     <View style={styles.contentContainer}>
@@ -33,7 +34,15 @@ export const LiqmahButton: React.FC<LiqmahButtonProps> = ({
           <LiqmahText 
             variant="body" 
             weight="semiBold" 
-            color={isPrimary ? '#FFF' : (isSecondary ? Colors.text.primary : Colors.primary.mint)}
+            color={
+              isPrimary 
+                ? '#FFF' 
+                : isOutline 
+                ? Colors.primary.mint 
+                : isSecondary 
+                ? Colors.text.primary 
+                : Colors.primary.mint
+            }
           >
             {label}
           </LiqmahText>
@@ -61,11 +70,37 @@ export const LiqmahButton: React.FC<LiqmahButtonProps> = ({
     );
   }
 
+  if (isSecondary) {
+     return (
+      <TouchableOpacity 
+        activeOpacity={0.7}
+        disabled={disabled || loading}
+        style={[styles.base, styles.secondary, disabled && styles.disabled, style]}
+        {...props}
+      >
+        {content}
+      </TouchableOpacity>
+    );
+  }
+
+  if (isOutline) {
+    return (
+      <TouchableOpacity 
+        activeOpacity={0.7}
+        disabled={disabled || loading}
+        style={[styles.base, styles.outline, disabled && styles.disabled, style]}
+        {...props}
+      >
+        {content}
+      </TouchableOpacity>
+    );
+  }
+
   return (
     <TouchableOpacity 
       style={[
         styles.base, 
-        isSecondary ? styles.secondary : styles.tertiary, 
+        styles.tertiary, 
         disabled && styles.disabled, 
         style
       ]} 
@@ -90,6 +125,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 1,
   },
   iconContainer: {
     marginRight: 8,
@@ -98,10 +134,14 @@ const styles = StyleSheet.create({
     ...Shadows.button.mint,
   },
   secondary: {
-    backgroundColor: Colors.base.glass.light,
+    backgroundColor: Colors.base.surface,
     borderWidth: 1,
-    borderColor: Colors.base.border.light,
-    // Secondary buttons might not need heavy shadows, maybe just subtle
+    borderColor: Colors.base.border.strong,
+  },
+  outline: {
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: Colors.primary.mint,
   },
   tertiary: {
     backgroundColor: 'transparent',
@@ -110,4 +150,3 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 });
-

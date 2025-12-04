@@ -14,7 +14,7 @@ export default function ProtectedLayout() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="(modals)" options={{ presentation: "modal" }} />
       <Stack.Screen name="category" />
-      <Stack.Screen name="recipe" />
+      {/* recipe route moved to root layout for public access */}
     </Stack>
   );
 }

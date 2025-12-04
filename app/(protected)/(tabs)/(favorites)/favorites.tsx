@@ -1,7 +1,6 @@
 import React, { useMemo } from "react";
 import {
   StyleSheet,
-  Text,
   View,
   FlatList,
   TouchableOpacity,
@@ -11,12 +10,18 @@ import {
   Alert,
 } from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { getMyFavorites, removeFavorite } from "@/api/favorites";
 import { getImageUrl } from "@/utils/imageUtils";
 import Recipe from "@/types/Recipe";
 import Favorite from "@/types/Favorite";
+import { LiqmahBackground } from "@/components/Liqmah/LiqmahBackground";
+import { LiqmahGlass } from "@/components/Liqmah/LiqmahGlass";
+import { LiqmahText } from "@/components/Liqmah/LiqmahText";
+import { LiqmahButton } from "@/components/Liqmah/LiqmahButton";
+import { Colors, Layout, Shadows } from "@/constants/LiqmahTheme";
+import { Heart, Clock, Tag, Utensils } from "lucide-react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Favorites() {
   const router = useRouter();
@@ -58,7 +63,7 @@ export default function Favorites() {
   }, [favorites]);
 
   const handleRecipePress = (recipeId: string) => {
-    router.push(`/(protected)/recipe/${recipeId}` as any);
+    router.push(`/recipe/${recipeId}` as any);
   };
 
   const handleRemoveFavorite = (recipeId: string, recipeTitle: string) => {
@@ -87,255 +92,220 @@ export default function Favorites() {
         ? item.categoryId.name
         : "Uncategorized";
 
+    const imageUrl = getImageUrl(item.image);
+
     return (
       <TouchableOpacity
-        style={styles.recipeCard}
+        style={styles.recipeCardContainer}
         onPress={() => handleRecipePress(item._id)}
-        activeOpacity={0.8}
+        activeOpacity={0.9}
       >
-        {getImageUrl(item.image) ? (
-          <Image
-            source={{ uri: getImageUrl(item.image)! }}
-            style={styles.recipeImage}
-            onError={(error) => {
-              console.error(
-                `Favorite image load error:`,
-                error.nativeEvent.error
-              );
-              console.error(`Failed URL:`, getImageUrl(item.image));
+        <LiqmahGlass intensity={80} style={styles.recipeCard}>
+          {imageUrl ? (
+            <Image
+              source={{ uri: imageUrl }}
+              style={styles.recipeImage}
+            />
+          ) : (
+            <View style={styles.recipeImagePlaceholder}>
+              <Utensils size={40} color={Colors.text.tertiary} />
+            </View>
+          )}
+          
+          <TouchableOpacity
+            style={styles.favoriteButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleRemoveFavorite(item._id, item.title);
             }}
-          />
-        ) : (
-          <View style={styles.recipeImagePlaceholder}>
-            <Ionicons name="restaurant-outline" size={40} color="#9CA3AF" />
-          </View>
-        )}
-        <TouchableOpacity
-          style={styles.favoriteButton}
-          onPress={(e) => {
-            e.stopPropagation();
-            handleRemoveFavorite(item._id, item.title);
-          }}
-          disabled={removeFavoriteMutation.isPending}
-        >
-          <Ionicons name="heart" size={20} color="#EF4444" />
-        </TouchableOpacity>
-        <View style={styles.recipeInfo}>
-          <Text style={styles.recipeTitle} numberOfLines={2}>
-            {item.title}
-          </Text>
-          <View style={styles.recipeMeta}>
-            {item.cookingTime && (
+            disabled={removeFavoriteMutation.isPending}
+          >
+            <Heart size={20} color="#EF4444" fill="#EF4444" />
+          </TouchableOpacity>
+
+          <View style={styles.recipeInfo}>
+            <LiqmahText variant="body" weight="semiBold" style={styles.recipeTitle} numberOfLines={2}>
+              {item.title}
+            </LiqmahText>
+            <View style={styles.recipeMeta}>
+              {item.cookingTime && (
+                <View style={styles.metaItem}>
+                  <Clock size={14} color={Colors.text.secondary} />
+                  <LiqmahText variant="micro" color={Colors.text.secondary}>{item.cookingTime} min</LiqmahText>
+                </View>
+              )}
               <View style={styles.metaItem}>
-                <Ionicons name="time-outline" size={14} color="#6B7280" />
-                <Text style={styles.metaText}>{item.cookingTime} min</Text>
+                <Tag size={14} color={Colors.text.secondary} />
+                <LiqmahText variant="micro" color={Colors.text.secondary}>{categoryName}</LiqmahText>
               </View>
-            )}
-            <View style={styles.metaItem}>
-              <Ionicons name="pricetag-outline" size={14} color="#6B7280" />
-              <Text style={styles.metaText}>{categoryName}</Text>
             </View>
           </View>
-        </View>
+        </LiqmahGlass>
       </TouchableOpacity>
     );
   };
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3B82F6" />
-        <Text style={styles.loadingText}>Loading favorites...</Text>
-      </View>
+      <LiqmahBackground>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary.mint} />
+          <LiqmahText style={styles.loadingText}>Loading favorites...</LiqmahText>
+        </View>
+      </LiqmahBackground>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Favorites</Text>
-        <Text style={styles.headerSubtitle}>
-          {recipes.length} {recipes.length === 1 ? "recipe" : "recipes"}
-        </Text>
-      </View>
+    <LiqmahBackground gradient={Colors.gradients.saffronSunrise}>
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <View style={styles.header}>
+          <LiqmahText variant="display" weight="bold" style={styles.headerTitle}>
+            My Favorites
+          </LiqmahText>
+          <LiqmahText variant="body" color={Colors.text.secondary} style={styles.headerSubtitle}>
+            {recipes.length} {recipes.length === 1 ? "recipe" : "recipes"} saved
+          </LiqmahText>
+        </View>
 
-      <FlatList
-        data={recipes}
-        renderItem={renderRecipeCard}
-        keyExtractor={(item) => item._id}
-        numColumns={2}
-        contentContainerStyle={styles.recipesList}
-        columnWrapperStyle={styles.recipeRow}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
-            tintColor="#3B82F6"
-          />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="heart-outline" size={64} color="#D1D5DB" />
-            <Text style={styles.emptyText}>No favorites yet</Text>
-            <Text style={styles.emptySubtext}>
-              Start exploring recipes and add them to your favorites!
-            </Text>
-            <TouchableOpacity
-              style={styles.exploreButton}
-              onPress={() =>
-                router.push("/(protected)/(tabs)/(explore)" as any)
-              }
-            >
-              <Text style={styles.exploreButtonText}>Explore Recipes</Text>
-            </TouchableOpacity>
-          </View>
-        }
-      />
-    </View>
+        <FlatList
+          data={recipes}
+          renderItem={renderRecipeCard}
+          keyExtractor={(item) => item._id}
+          numColumns={2}
+          contentContainerStyle={styles.recipesList}
+          columnWrapperStyle={styles.recipeRow}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor={Colors.primary.mint}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Heart size={64} color={Colors.base.border.medium} />
+              <LiqmahText variant="headline" weight="semiBold" color={Colors.text.secondary} style={styles.emptyText}>
+                No favorites yet
+              </LiqmahText>
+              <LiqmahText variant="body" color={Colors.text.tertiary} style={styles.emptySubtext}>
+                Start exploring recipes and add them to your favorites!
+              </LiqmahText>
+              <LiqmahButton
+                label="Explore Recipes"
+                onPress={() => router.push("/(protected)/(tabs)/(explore)" as any)}
+                style={styles.exploreButton}
+              />
+            </View>
+          }
+        />
+      </SafeAreaView>
+    </LiqmahBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F9FAFB",
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: "#6B7280",
+    marginTop: Layout.spacing.md,
+    color: Colors.text.secondary,
   },
   header: {
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    paddingHorizontal: Layout.spacing.lg,
+    paddingTop: Layout.spacing.md,
+    paddingBottom: Layout.spacing.md,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#111827",
     marginBottom: 4,
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: "#6B7280",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    fontSize: 12,
   },
   recipesList: {
-    padding: 16,
+    padding: Layout.spacing.lg,
+    paddingBottom: 100, // Space for dock
   },
   recipeRow: {
     justifyContent: "space-between",
-    marginBottom: 16,
+    marginBottom: Layout.spacing.md,
+  },
+  recipeCardContainer: {
+    width: "48%",
   },
   recipeCard: {
-    width: "48%",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
+    borderRadius: Layout.radius.card,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-    position: "relative",
+    padding: 0,
+    ...Shadows.glassCard,
   },
   recipeImage: {
     width: "100%",
     height: 160,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: Colors.base.cloud,
   },
   recipeImagePlaceholder: {
     width: "100%",
     height: 160,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: Colors.base.cloud,
     justifyContent: "center",
     alignItems: "center",
   },
   favoriteButton: {
     position: "absolute",
-    top: 12,
-    right: 12,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#FFFFFF",
+    top: 8,
+    right: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.base.white,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    ...Shadows.button.mint,
   },
   recipeInfo: {
-    padding: 12,
+    padding: Layout.spacing.md,
   },
   recipeTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#111827",
-    marginBottom: 8,
-    minHeight: 44,
+    marginBottom: Layout.spacing.xs,
+    minHeight: 40,
   },
   recipeMeta: {
     flexDirection: "row",
-    gap: 12,
+    gap: Layout.spacing.sm,
     flexWrap: "wrap",
+    marginTop: Layout.spacing.xs,
   },
   metaItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
   },
-  metaText: {
-    fontSize: 12,
-    color: "#6B7280",
-  },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 64,
-    paddingHorizontal: 32,
+    paddingVertical: Layout.spacing.xxl,
+    paddingHorizontal: Layout.spacing.xl,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#374151",
-    marginTop: 16,
+    marginTop: Layout.spacing.md,
     textAlign: "center",
   },
   emptySubtext: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginTop: 8,
+    marginTop: Layout.spacing.xs,
     textAlign: "center",
-    marginBottom: 24,
+    marginBottom: Layout.spacing.lg,
   },
   exploreButton: {
-    backgroundColor: "#3B82F6",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  exploreButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
+    width: "100%",
   },
 });

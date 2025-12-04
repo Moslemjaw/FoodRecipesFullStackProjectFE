@@ -1,6 +1,5 @@
 import {
   StyleSheet,
-  Text,
   View,
   TouchableOpacity,
   FlatList,
@@ -8,24 +7,38 @@ import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
+  Alert,
 } from "react-native";
-import React, { useContext } from "react";
+import React, { useContext, useMemo } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { useQuery } from "@tanstack/react-query";
-import { Ionicons } from "@expo/vector-icons";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Clock, Tag, UserPlus, UserMinus, Users } from "lucide-react-native";
 import AuthContext from "@/context/AuthContext";
-import { getUserById } from "@/api/auth";
+import { getUserById, me } from "@/api/auth";
 import { getRecipesByUserId } from "@/api/recipes";
-import { getFollowing } from "@/api/follows";
+import { getFollowing, getFollowers, followUser, unfollowUser } from "@/api/follows";
 import { getImageUrl } from "@/utils/imageUtils";
 import User from "@/types/User";
 import Recipe from "@/types/Recipe";
+import { LiqmahBackground } from "@/components/Liqmah/LiqmahBackground";
+import { LiqmahCard } from "@/components/Liqmah/LiqmahCard";
+import { LiqmahButton } from "@/components/Liqmah/LiqmahButton";
+import { LiqmahText } from "@/components/Liqmah/LiqmahText";
+import { Colors, Layout, Shadows } from "@/constants/LiqmahTheme";
+import { Utensils } from "lucide-react-native";
 
 export default function UserProfile() {
   const params = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { isAutheticated } = useContext(AuthContext);
   const userId = params.id;
+
+  const { data: currentUser } = useQuery({
+    queryKey: ["user"],
+    queryFn: me,
+    enabled: isAutheticated,
+  });
 
   const { data: user, isLoading: isLoadingUser } = useQuery({
     queryKey: ["user", userId],
@@ -38,10 +51,16 @@ export default function UserProfile() {
     enabled: !!userId,
   });
 
-  const { data: following = [], isLoading: isLoadingFollowing } = useQuery({
-    queryKey: ["following", userId],
+  const { data: following = [] } = useQuery({
+    queryKey: ["following"],
     queryFn: getFollowing,
-    enabled: !!userId,
+    enabled: isAutheticated,
+  });
+
+  const { data: followers = [], isLoading: isLoadingFollowers } = useQuery({
+    queryKey: ["followers", userId],
+    queryFn: getFollowers,
+    enabled: !!userId && isAutheticated,
   });
 
   const {
@@ -60,8 +79,60 @@ export default function UserProfile() {
     enabled: !!userId,
   });
 
+  const isFollowing = useMemo(() => {
+    if (!isAutheticated || !userId || !following) return false;
+    return following.some((follow: any) => {
+      const followingId =
+        typeof follow.followingID === "object"
+          ? follow.followingID._id
+          : follow.followingID;
+      return followingId === userId;
+    });
+  }, [following, userId, isAutheticated]);
+
+  const isOwnProfile = useMemo(() => {
+    if (!isAutheticated || !currentUser || !userId) return false;
+    return currentUser._id === userId;
+  }, [currentUser, userId, isAutheticated]);
+
+  const followMutation = useMutation({
+    mutationFn: async () => {
+      if (!userId) throw new Error("User ID is required");
+      if (isFollowing) {
+        await unfollowUser(userId);
+      } else {
+        await followUser(userId);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["following"] });
+      queryClient.invalidateQueries({ queryKey: ["followers", userId] });
+    },
+    onError: (error: any) => {
+      Alert.alert(
+        "Error",
+        error?.response?.data?.message || "Failed to update follow status"
+      );
+    },
+  });
+
+  const handleFollow = () => {
+    if (!isAutheticated) {
+      Alert.alert(
+        "Sign in Required",
+        "Please sign in to follow users.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Sign In", onPress: () => router.push("/(auth)/login") },
+        ]
+      );
+      return;
+    }
+    followMutation.mutate();
+  };
+
   const handleRecipePress = (recipeId: string) => {
-    router.push(`/(protected)/recipe/${recipeId}` as any);
+    router.push(`/recipe/${recipeId}` as any);
   };
 
   const renderRecipeCard = ({ item }: { item: Recipe }) => {
@@ -70,181 +141,252 @@ export default function UserProfile() {
         ? item.categoryId.name
         : "Uncategorized";
 
+    const imageUrl = getImageUrl(item.image);
+
     return (
-      <TouchableOpacity
-        style={styles.recipeCard}
+      <LiqmahCard
+        variant="elevated"
+        pressable
         onPress={() => handleRecipePress(item._id)}
-        activeOpacity={0.8}
+        style={styles.recipeCard}
       >
-        {getImageUrl(item.image) ? (
-          <Image
-            source={{ uri: getImageUrl(item.image)! }}
-            style={styles.recipeImage}
-          />
+        {imageUrl ? (
+          <Image source={{ uri: imageUrl }} style={styles.recipeImage} />
         ) : (
           <View style={styles.recipeImagePlaceholder}>
-            <Ionicons name="restaurant-outline" size={40} color="#9CA3AF" />
+            <Utensils size={32} color={Colors.text.tertiary} />
           </View>
         )}
         <View style={styles.recipeInfo}>
-          <Text style={styles.recipeTitle} numberOfLines={2}>
+          <LiqmahText
+            variant="body"
+            weight="semiBold"
+            style={styles.recipeTitle}
+            numberOfLines={2}
+          >
             {item.title}
-          </Text>
+          </LiqmahText>
           <View style={styles.recipeMeta}>
             {item.cookingTime && (
               <View style={styles.metaItem}>
-                <Ionicons name="time-outline" size={14} color="#6B7280" />
-                <Text style={styles.metaText}>{item.cookingTime} min</Text>
+                <Clock size={12} color={Colors.text.secondary} />
+                <LiqmahText variant="micro" color={Colors.text.secondary}>
+                  {item.cookingTime} min
+                </LiqmahText>
               </View>
             )}
             <View style={styles.metaItem}>
-              <Ionicons name="pricetag-outline" size={14} color="#6B7280" />
-              <Text style={styles.metaText}>{categoryName}</Text>
+              <Tag size={12} color={Colors.text.secondary} />
+              <LiqmahText variant="micro" color={Colors.text.secondary}>
+                {categoryName}
+              </LiqmahText>
             </View>
           </View>
         </View>
-      </TouchableOpacity>
+      </LiqmahCard>
     );
   };
 
   if (!userId) {
     return (
-      <View style={styles.loadingContainer}>
-        <Ionicons name="alert-circle-outline" size={64} color="#EF4444" />
-        <Text style={styles.errorText}>User ID is missing</Text>
-        <TouchableOpacity
-          style={styles.retryButton}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.retryButtonText}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
+      <LiqmahBackground>
+        <View style={styles.loadingContainer}>
+          <LiqmahText variant="headline" color={Colors.text.secondary}>
+            User ID is missing
+          </LiqmahText>
+          <LiqmahButton
+            label="Go Back"
+            variant="outline"
+            onPress={() => router.back()}
+            style={styles.retryButton}
+          />
+        </View>
+      </LiqmahBackground>
     );
   }
 
-  if (isLoadingUser || isLoadingFollowing) {
+  if (isLoadingUser) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3B82F6" />
-        <Text style={styles.loadingText}>Loading profile...</Text>
-      </View>
+      <LiqmahBackground>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary.mint} />
+          <LiqmahText style={styles.loadingText}>Loading profile...</LiqmahText>
+        </View>
+      </LiqmahBackground>
     );
   }
 
   if (!user) {
     return (
-      <View style={styles.loadingContainer}>
-        <Ionicons name="alert-circle-outline" size={64} color="#EF4444" />
-        <Text style={styles.errorText}>User not found</Text>
-        <TouchableOpacity
-          style={styles.retryButton}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.retryButtonText}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
+      <LiqmahBackground>
+        <View style={styles.loadingContainer}>
+          <LiqmahText variant="headline" color={Colors.text.secondary}>
+            User not found
+          </LiqmahText>
+          <LiqmahButton
+            label="Go Back"
+            variant="outline"
+            onPress={() => router.back()}
+            style={styles.retryButton}
+          />
+        </View>
+      </LiqmahBackground>
     );
   }
 
   const userData = user as User;
   const followingCount = following.length;
+  const followersCount = followers.length;
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
+    <LiqmahBackground>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <LiqmahCard variant="elevated" style={styles.backButtonCard}>
+              <ArrowLeft size={20} color={Colors.text.primary} />
+            </LiqmahCard>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView
+          style={styles.scrollView}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetchingRecipes}
+              onRefresh={refetchRecipes}
+              tintColor={Colors.primary.mint}
+            />
+          }
         >
-          <Ionicons name="arrow-back" size={24} color="#111827" />
-        </TouchableOpacity>
+          <LiqmahCard variant="elevated" style={styles.profileHeader}>
+            {userData?.image && getImageUrl(userData.image) ? (
+              <Image
+                source={{ uri: getImageUrl(userData.image)! }}
+                style={styles.avatarImage}
+              />
+            ) : (
+              <View style={styles.avatar}>
+                <LiqmahText variant="display" color={Colors.base.white} weight="bold">
+                  {userData?.name?.[0]?.toUpperCase() || "👤"}
+                </LiqmahText>
+              </View>
+            )}
+            <LiqmahText variant="section" weight="bold" style={styles.name}>
+              {userData?.name || "User Profile"}
+            </LiqmahText>
+            <LiqmahText variant="body" color={Colors.text.secondary} style={styles.email}>
+              {userData?.email || ""}
+            </LiqmahText>
+
+            {!isOwnProfile && isAutheticated && (
+              <LiqmahButton
+                label={isFollowing ? "Following" : "Follow"}
+                variant={isFollowing ? "secondary" : "primary"}
+                icon={
+                  isFollowing ? (
+                    <UserMinus size={18} color={Colors.text.primary} />
+                  ) : (
+                    <UserPlus size={18} color={Colors.base.white} />
+                  )
+                }
+                onPress={handleFollow}
+                loading={followMutation.isPending}
+                style={styles.followButton}
+              />
+            )}
+
+            <View style={styles.statsContainer}>
+              <View style={styles.statItem}>
+                <LiqmahText variant="headline" weight="bold" color={Colors.primary.mint}>
+                  {recipes.length}
+                </LiqmahText>
+                <LiqmahText variant="caption" color={Colors.text.secondary}>
+                  Recipes
+                </LiqmahText>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <LiqmahText variant="headline" weight="bold" color={Colors.primary.mint}>
+                  {isLoadingFollowers ? "..." : followersCount}
+                </LiqmahText>
+                <View style={styles.statLabelRow}>
+                  <Users size={12} color={Colors.text.secondary} />
+                  <LiqmahText variant="caption" color={Colors.text.secondary}>
+                    Followers
+                  </LiqmahText>
+                </View>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <LiqmahText variant="headline" weight="bold" color={Colors.primary.mint}>
+                  {followingCount}
+                </LiqmahText>
+                <LiqmahText variant="caption" color={Colors.text.secondary}>
+                  Following
+                </LiqmahText>
+              </View>
+            </View>
+          </LiqmahCard>
+
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <LiqmahText variant="headline" weight="bold" style={styles.sectionTitle}>
+                Recipes
+              </LiqmahText>
+              <LiqmahText variant="caption" color={Colors.text.secondary}>
+                {recipes.length} {recipes.length === 1 ? "recipe" : "recipes"}
+              </LiqmahText>
+            </View>
+
+            {isLoadingRecipes ? (
+              <View style={styles.loadingRecipesContainer}>
+                <ActivityIndicator size="large" color={Colors.primary.mint} />
+              </View>
+            ) : recipes.length > 0 ? (
+              <FlatList
+                data={recipes}
+                renderItem={renderRecipeCard}
+                keyExtractor={(item) => item._id}
+                numColumns={2}
+                scrollEnabled={false}
+                contentContainerStyle={styles.recipesList}
+                columnWrapperStyle={styles.recipeRow}
+              />
+            ) : (
+              <LiqmahCard variant="outlined" style={styles.emptyContainer}>
+                <Utensils size={48} color={Colors.text.tertiary} />
+                <LiqmahText
+                  variant="body"
+                  weight="semiBold"
+                  color={Colors.text.secondary}
+                  style={styles.emptyText}
+                >
+                  No recipes yet
+                </LiqmahText>
+                <LiqmahText
+                  variant="caption"
+                  color={Colors.text.tertiary}
+                  style={styles.emptySubtext}
+                >
+                  This user hasn't created any recipes yet.
+                </LiqmahText>
+              </LiqmahCard>
+            )}
+          </View>
+        </ScrollView>
       </View>
-      <ScrollView
-        style={styles.scrollView}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetchingRecipes}
-            onRefresh={refetchRecipes}
-            tintColor="#3B82F6"
-          />
-        }
-      >
-        <View style={styles.profileHeader}>
-          {userData?.image && getImageUrl(userData.image) ? (
-            <Image
-              source={{ uri: getImageUrl(userData.image)! }}
-              style={styles.avatarImage}
-            />
-          ) : (
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {userData?.name?.[0]?.toUpperCase() || "👤"}
-              </Text>
-            </View>
-          )}
-          <Text style={styles.name}>
-            {userData?.name || "User Profile"}
-          </Text>
-          <Text style={styles.email}>{userData?.email || ""}</Text>
-
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{recipes.length}</Text>
-              <Text style={styles.statLabel}>
-                {recipes.length === 1 ? "Recipe" : "Recipes"}
-              </Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{followingCount}</Text>
-              <Text style={styles.statLabel}>
-                {followingCount === 1 ? "Following" : "Following"}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recipes</Text>
-            <Text style={styles.sectionSubtitle}>
-              {recipes.length} {recipes.length === 1 ? "recipe" : "recipes"}
-            </Text>
-          </View>
-
-          {isLoadingRecipes ? (
-            <View style={styles.loadingRecipesContainer}>
-              <ActivityIndicator size="large" color="#3B82F6" />
-            </View>
-          ) : recipes.length > 0 ? (
-            <FlatList
-              data={recipes}
-              renderItem={renderRecipeCard}
-              keyExtractor={(item) => item._id}
-              numColumns={2}
-              scrollEnabled={false}
-              contentContainerStyle={styles.recipesList}
-              columnWrapperStyle={styles.recipeRow}
-            />
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="restaurant-outline" size={64} color="#D1D5DB" />
-              <Text style={styles.emptyText}>No recipes yet</Text>
-              <Text style={styles.emptySubtext}>
-                This user hasn't created any recipes yet.
-              </Text>
-            </View>
-          )}
-        </View>
-      </ScrollView>
-    </View>
+    </LiqmahBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: Colors.base.background,
   },
   scrollView: {
     flex: 1,
@@ -255,104 +397,80 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
-    padding: 16,
+    padding: Layout.spacing.md,
     paddingTop: 48,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#FFFFFF",
+    width: 44,
+    height: 44,
+  },
+  backButtonCard: {
+    width: 44,
+    height: 44,
+    padding: 0,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F9FAFB",
-    padding: 32,
+    padding: Layout.spacing.xl,
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: "#6B7280",
-  },
-  errorText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#EF4444",
-    marginTop: 16,
-    textAlign: "center",
+    marginTop: Layout.spacing.md,
+    color: Colors.text.secondary,
   },
   retryButton: {
-    marginTop: 24,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    backgroundColor: "#3B82F6",
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
+    marginTop: Layout.spacing.lg,
+    minWidth: 150,
   },
   profileHeader: {
     alignItems: "center",
-    paddingVertical: 32,
-    paddingHorizontal: 20,
-    paddingTop: 80,
-    backgroundColor: "#FFFFFF",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    paddingVertical: Layout.spacing.xl,
+    paddingHorizontal: Layout.spacing.lg,
+    marginTop: 80,
+    marginHorizontal: Layout.spacing.lg,
+    marginBottom: Layout.spacing.md,
   },
   avatar: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: "#3B82F6",
+    backgroundColor: Colors.primary.mint,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: Layout.spacing.md,
+    ...Shadows.floating,
   },
   avatarImage: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    marginBottom: 16,
-  },
-  avatarText: {
-    fontSize: 48,
-    color: "#FFFFFF",
-    fontWeight: "600",
+    marginBottom: Layout.spacing.md,
+    borderWidth: 3,
+    borderColor: Colors.base.white,
+    ...Shadows.floating,
   },
   name: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#111827",
     marginBottom: 4,
   },
   email: {
-    fontSize: 16,
-    color: "#6B7280",
-    marginBottom: 24,
+    marginBottom: Layout.spacing.md,
+  },
+  followButton: {
+    width: "100%",
+    marginTop: Layout.spacing.md,
+    marginBottom: Layout.spacing.lg,
   },
   statsContainer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
-    paddingTop: 16,
+    paddingTop: Layout.spacing.md,
     borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
+    borderTopColor: Colors.base.border.strong,
   },
   statItem: {
     flex: 1,
@@ -361,36 +479,27 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     height: 40,
-    backgroundColor: "#E5E7EB",
-    marginHorizontal: 24,
+    backgroundColor: Colors.base.border.strong,
+    marginHorizontal: Layout.spacing.md,
   },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 14,
-    color: "#6B7280",
-    fontWeight: "500",
+  statLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 2,
   },
   section: {
-    padding: 20,
-    marginBottom: 8,
+    paddingHorizontal: Layout.spacing.lg,
+    marginBottom: Layout.spacing.md,
   },
   sectionHeader: {
-    marginBottom: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Layout.spacing.md,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    fontSize: 14,
-    color: "#6B7280",
+    color: Colors.text.primary,
   },
   loadingRecipesContainer: {
     paddingVertical: 40,
@@ -401,75 +510,54 @@ const styles = StyleSheet.create({
   },
   recipeRow: {
     justifyContent: "space-between",
-    marginBottom: 16,
+    marginBottom: Layout.spacing.md,
   },
   recipeCard: {
     width: "48%",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
+    padding: 0,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
   },
   recipeImage: {
     width: "100%",
-    height: 160,
-    backgroundColor: "#F3F4F6",
+    height: 140,
+    backgroundColor: Colors.base.cloud,
   },
   recipeImagePlaceholder: {
     width: "100%",
-    height: 160,
-    backgroundColor: "#F3F4F6",
+    height: 140,
+    backgroundColor: Colors.base.cloud,
     justifyContent: "center",
     alignItems: "center",
   },
   recipeInfo: {
-    padding: 12,
+    padding: Layout.spacing.md,
   },
   recipeTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#111827",
-    marginBottom: 8,
-    minHeight: 44,
+    marginBottom: Layout.spacing.xs,
+    minHeight: 40,
   },
   recipeMeta: {
     flexDirection: "row",
-    gap: 12,
+    gap: Layout.spacing.sm,
     flexWrap: "wrap",
+    marginTop: Layout.spacing.xs,
   },
   metaItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
   },
-  metaText: {
-    fontSize: 12,
-    color: "#6B7280",
-  },
   emptyContainer: {
     alignItems: "center",
-    paddingVertical: 48,
-    paddingHorizontal: 32,
+    paddingVertical: Layout.spacing.xl,
+    paddingHorizontal: Layout.spacing.lg,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#374151",
-    marginTop: 16,
+    marginTop: Layout.spacing.md,
     textAlign: "center",
   },
   emptySubtext: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginTop: 8,
+    marginTop: Layout.spacing.xs,
     textAlign: "center",
   },
 });
-

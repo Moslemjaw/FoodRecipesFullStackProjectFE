@@ -1,13 +1,11 @@
 import {
   StyleSheet,
-  Text,
   View,
-  TextInput,
-  TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Image,
+  TouchableOpacity,
 } from "react-native";
 import React, { useContext, useState } from "react";
 import { useRouter } from "expo-router";
@@ -16,6 +14,13 @@ import * as ImagePicker from "expo-image-picker";
 import AuthContext from "@/context/AuthContext";
 import { register } from "@/api/auth";
 import { storeToken } from "@/api/storage";
+import { LiqmahBackground } from "@/components/Liqmah/LiqmahBackground";
+import { LiqmahGlass } from "@/components/Liqmah/LiqmahGlass";
+import { LiqmahText } from "@/components/Liqmah/LiqmahText";
+import { LiqmahInput } from "@/components/Liqmah/LiqmahInput";
+import { LiqmahButton } from "@/components/Liqmah/LiqmahButton";
+import { Colors, Layout, Shadows } from "@/constants/LiqmahTheme";
+import { Camera, User, Mail, Lock } from "lucide-react-native";
 
 export default function Register() {
   const [name, setName] = useState("");
@@ -61,165 +66,144 @@ export default function Register() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+    <LiqmahBackground gradient={Colors.gradients.aquaDaybreak}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <View style={styles.content}>
-          <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Sign up to get started</Text>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.content}>
+            <View style={styles.header}>
+              <LiqmahText variant="display" weight="bold" style={styles.title}>
+                Create Account
+              </LiqmahText>
+              <LiqmahText variant="body" color={Colors.text.secondary} style={styles.subtitle}>
+                Sign up to get started
+              </LiqmahText>
+            </View>
 
-          <View style={styles.profilePicContainer}>
-            <TouchableOpacity
-              style={styles.profilePicButton}
-              onPress={pickImage}
-            >
-              {image ? (
-                <Image source={{ uri: image }} style={styles.profilePic} />
-              ) : (
-                <View style={styles.profilePicPlaceholder}>
-                  <Text style={styles.profilePicIcon}>📷</Text>
-                  <Text style={styles.profilePicText}>Add Photo</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
+            <View style={styles.profilePicContainer}>
+              <TouchableOpacity
+                style={styles.profilePicButton}
+                onPress={pickImage}
+              >
+                {image ? (
+                  <Image source={{ uri: image }} style={styles.profilePic} />
+                ) : (
+                  <View style={styles.profilePicPlaceholder}>
+                    <Camera size={32} color={Colors.text.tertiary} />
+                    <LiqmahText variant="micro" color={Colors.text.secondary} weight="medium" style={styles.addPhotoText}>
+                      Add Photo
+                    </LiqmahText>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
 
-          <View style={styles.form}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Full Name</Text>
-              <TextInput
-                style={styles.input}
+            <LiqmahGlass intensity={60} style={styles.formCard}>
+              <LiqmahInput
+                label="Full Name"
                 placeholder="Enter your full name"
-                placeholderTextColor="#9CA3AF"
                 value={name}
                 onChangeText={setName}
                 autoCapitalize="words"
                 autoCorrect={false}
+                icon={<User size={20} color={Colors.text.tertiary} />}
               />
-            </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Email</Text>
-              <TextInput
-                style={styles.input}
+              <LiqmahInput
+                label="Email"
                 placeholder="Enter your email"
-                placeholderTextColor="#9CA3AF"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
+                icon={<Mail size={20} color={Colors.text.tertiary} />}
               />
-            </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Password</Text>
-              <TextInput
-                style={styles.input}
+              <LiqmahInput
+                label="Password"
                 placeholder="Enter your password"
-                placeholderTextColor="#9CA3AF"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
                 autoCapitalize="none"
                 autoCorrect={false}
+                icon={<Lock size={20} color={Colors.text.tertiary} />}
               />
-            </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Confirm Password</Text>
-              <TextInput
-                style={styles.input}
+              <LiqmahInput
+                label="Confirm Password"
                 placeholder="Confirm your password"
-                placeholderTextColor="#9CA3AF"
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry
                 autoCapitalize="none"
                 autoCorrect={false}
+                icon={<Lock size={20} color={Colors.text.tertiary} />}
               />
-            </View>
 
-            <TouchableOpacity
-              style={[
-                styles.registerButton,
-                isPending && styles.registerButtonDisabled,
-              ]}
-              onPress={handleRegistration}
-              disabled={isPending}
-            >
-              <Text style={styles.registerButtonText}>
-                {isPending ? "Creating Account..." : "Sign Up"}
-              </Text>
-            </TouchableOpacity>
+              <LiqmahButton
+                label="Sign Up"
+                onPress={handleRegistration}
+                loading={isPending}
+                style={styles.registerButton}
+              />
 
-            <TouchableOpacity
-              style={styles.loginLink}
-              onPress={() => router.navigate("/")}
-            >
-              <Text style={styles.loginLinkText}>
-                Already have an account? Sign in
-              </Text>
-            </TouchableOpacity>
+              <LiqmahButton
+                label="Already have an account? Sign in"
+                variant="tertiary"
+                onPress={() => router.navigate("/")}
+                style={styles.loginLink}
+              />
+            </LiqmahGlass>
           </View>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </LiqmahBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
   },
   scrollContent: {
     flexGrow: 1,
+    paddingVertical: Layout.spacing.xl,
   },
   content: {
     flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+    paddingHorizontal: Layout.spacing.lg,
+  },
+  header: {
+    marginBottom: Layout.spacing.lg,
+    alignItems: 'center',
   },
   title: {
-    fontSize: 32,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 8,
     textAlign: "center",
+    marginBottom: Layout.spacing.xs,
   },
   subtitle: {
-    fontSize: 16,
-    color: "#6B7280",
-    marginBottom: 24,
     textAlign: "center",
   },
   profilePicContainer: {
     alignItems: "center",
-    marginBottom: 32,
+    marginBottom: Layout.spacing.xl,
   },
   profilePicButton: {
     width: 120,
     height: 120,
     borderRadius: 60,
     overflow: "hidden",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Colors.base.white,
     borderWidth: 3,
-    borderColor: "#E5E7EB",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderColor: Colors.base.glass.medium,
+    ...Shadows.floating,
   },
   profilePic: {
     width: "100%",
@@ -230,77 +214,19 @@ const styles = StyleSheet.create({
     height: "100%",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F3F4F6",
+    backgroundColor: Colors.base.cloud,
   },
-  profilePicIcon: {
-    fontSize: 32,
-    marginBottom: 4,
+  addPhotoText: {
+    marginTop: 4,
   },
-  profilePicText: {
-    fontSize: 12,
-    color: "#6B7280",
-    fontWeight: "500",
-  },
-  form: {
-    width: "100%",
-  },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: "#111827",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+  formCard: {
+    padding: Layout.spacing.xl,
+    borderRadius: Layout.radius.card,
   },
   registerButton: {
-    backgroundColor: "#3B82F6",
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: "center",
-    marginTop: 8,
-    shadowColor: "#3B82F6",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  registerButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  registerButtonDisabled: {
-    opacity: 0.6,
+    marginTop: Layout.spacing.md,
   },
   loginLink: {
-    marginTop: 20,
-    alignItems: "center",
-  },
-  loginLinkText: {
-    color: "#3B82F6",
-    fontSize: 14,
-    fontWeight: "500",
+    marginTop: Layout.spacing.sm,
   },
 });

@@ -135,8 +135,8 @@ const filterByIngredients = async (
 ): Promise<Recipe[]> => {
   const recipes = await getAllRecipes();
   return recipes.filter((recipe: any) => {
-    const recipeIngredientIds = recipe.ingredients.map((i: any) =>
-      i.ingredientId?._id || i.ingredientId
+    const recipeIngredientIds = recipe.ingredients.map(
+      (i: any) => i.ingredientId?._id || i.ingredientId
     );
     return ingredientIds.some((id) => recipeIngredientIds.includes(id));
   });
@@ -147,8 +147,8 @@ const filterOutIngredients = async (
 ): Promise<Recipe[]> => {
   const recipes = await getAllRecipes();
   return recipes.filter((recipe: any) => {
-    const recipeIngredientIds = recipe.ingredients.map((i: any) =>
-      i.ingredientId?._id || i.ingredientId
+    const recipeIngredientIds = recipe.ingredients.map(
+      (i: any) => i.ingredientId?._id || i.ingredientId
     );
     return !ingredientIds.some((id) => recipeIngredientIds.includes(id));
   });

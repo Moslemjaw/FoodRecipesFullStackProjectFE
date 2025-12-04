@@ -1,9 +1,6 @@
 import {
   StyleSheet,
-  Text,
   View,
-  TextInput,
-  TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
   Alert,
@@ -15,6 +12,13 @@ import AuthContext from "@/context/AuthContext";
 import UserInfo from "@/types/UserInfo";
 import { login } from "@/api/auth";
 import { storeToken } from "@/api/storage";
+import { LiqmahBackground } from "@/components/Liqmah/LiqmahBackground";
+import { LiqmahGlass } from "@/components/Liqmah/LiqmahGlass";
+import { LiqmahText } from "@/components/Liqmah/LiqmahText";
+import { LiqmahInput } from "@/components/Liqmah/LiqmahInput";
+import { LiqmahButton } from "@/components/Liqmah/LiqmahButton";
+import { Colors, Layout } from "@/constants/LiqmahTheme";
+import { Mail, Lock } from "lucide-react-native";
 
 export default function Index() {
   const [email, setEmail] = useState("");
@@ -59,173 +63,113 @@ export default function Index() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <View style={styles.content}>
-        <Text style={styles.title}>Welcome Back</Text>
-        <Text style={styles.subtitle}>Sign in to continue</Text>
+    <LiqmahBackground gradient={Colors.gradients.mintBreeze}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <View style={styles.content}>
+          <View style={styles.header}>
+            <LiqmahText variant="display" weight="bold" style={styles.title}>
+              Welcome Back
+            </LiqmahText>
+            <LiqmahText variant="body" color={Colors.text.secondary} style={styles.subtitle}>
+              Sign in to continue to Liqmah
+            </LiqmahText>
+          </View>
 
-        <View style={styles.form}>
-          {error && (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>
-                {error?.response?.data?.message ||
-                  error?.message ||
-                  "Login failed. Please try again."}
-              </Text>
-            </View>
-          )}
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
+          <LiqmahGlass intensity={60} style={styles.formCard}>
+            {error && (
+              <View style={styles.errorContainer}>
+                <LiqmahText style={styles.errorText} variant="caption" color="#DC2626">
+                  {error?.response?.data?.message ||
+                    error?.message ||
+                    "Login failed. Please try again."}
+                </LiqmahText>
+              </View>
+            )}
+            
+            <LiqmahInput
+              label="Email"
               placeholder="Enter your email"
-              placeholderTextColor="#9CA3AF"
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              icon={<Mail size={20} color={Colors.text.tertiary} />}
             />
-          </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
+            <LiqmahInput
+              label="Password"
               placeholder="Enter your password"
-              placeholderTextColor="#9CA3AF"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
               autoCapitalize="none"
               autoCorrect={false}
+              icon={<Lock size={20} color={Colors.text.tertiary} />}
             />
-          </View>
 
-          <TouchableOpacity
-            style={[
-              styles.loginButton,
-              isPending && styles.loginButtonDisabled,
-            ]}
-            onPress={handleLogin}
-            disabled={isPending}
-          >
-            <Text style={styles.loginButtonText}>
-              {isPending ? "Signing In..." : "Sign In"}
-            </Text>
-          </TouchableOpacity>
+            <LiqmahButton
+              label="Sign In"
+              onPress={handleLogin}
+              loading={isPending}
+              style={styles.loginButton}
+            />
 
-          <TouchableOpacity
-            style={styles.forgotPassword}
-            onPress={() => router.navigate("/(auth)/register")}
-          >
-            <Text style={styles.forgotPasswordText}>Create account</Text>
-          </TouchableOpacity>
+            <LiqmahButton
+              label="Create account"
+              variant="tertiary"
+              onPress={() => router.navigate("/(auth)/register")}
+              style={styles.registerButton}
+            />
+          </LiqmahGlass>
         </View>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </LiqmahBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
   },
   content: {
     flex: 1,
     justifyContent: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: Layout.spacing.lg,
+  },
+  header: {
+    marginBottom: Layout.spacing.xl,
+    alignItems: 'center',
   },
   title: {
-    fontSize: 32,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 8,
     textAlign: "center",
+    marginBottom: Layout.spacing.xs,
   },
   subtitle: {
-    fontSize: 16,
-    color: "#6B7280",
-    marginBottom: 32,
     textAlign: "center",
   },
-  form: {
-    width: "100%",
-  },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: "#111827",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  loginButton: {
-    backgroundColor: "#3B82F6",
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: "center",
-    marginTop: 8,
-    shadowColor: "#3B82F6",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  loginButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  loginButtonDisabled: {
-    opacity: 0.6,
-  },
-  forgotPassword: {
-    marginTop: 20,
-    alignItems: "center",
-  },
-  forgotPasswordText: {
-    color: "#3B82F6",
-    fontSize: 14,
-    fontWeight: "500",
+  formCard: {
+    padding: Layout.spacing.xl,
+    borderRadius: Layout.radius.card,
   },
   errorContainer: {
-    backgroundColor: "#FEE2E2",
+    backgroundColor: "rgba(254, 226, 226, 0.5)",
     borderWidth: 1,
     borderColor: "#EF4444",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 20,
+    borderRadius: Layout.radius.button,
+    padding: Layout.spacing.md,
+    marginBottom: Layout.spacing.lg,
   },
   errorText: {
-    color: "#DC2626",
-    fontSize: 14,
     textAlign: "center",
+  },
+  loginButton: {
+    marginTop: Layout.spacing.md,
+  },
+  registerButton: {
+    marginTop: Layout.spacing.sm,
   },
 });

@@ -3,7 +3,6 @@ import { getAllIngredients } from "@/api/ingredients";
 import { createRecipe } from "@/api/recipes";
 import Category from "@/types/Category";
 import Ingredient from "@/types/Ingredient";
-import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -13,11 +12,17 @@ import {
   Image,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   TouchableOpacity,
   View,
+  TextInput,
 } from "react-native";
+import { LiqmahBackground } from "@/components/Liqmah/LiqmahBackground";
+import { LiqmahGlass } from "@/components/Liqmah/LiqmahGlass";
+import { LiqmahText } from "@/components/Liqmah/LiqmahText";
+import { LiqmahInput } from "@/components/Liqmah/LiqmahInput";
+import { LiqmahButton } from "@/components/Liqmah/LiqmahButton";
+import { Colors, Layout, Shadows, Typography } from "@/constants/LiqmahTheme";
+import { X, Camera, Plus, Trash2, Clock, AlignLeft, Type } from "lucide-react-native";
 
 export default function CreateRecipe() {
   const router = useRouter();
@@ -61,15 +66,6 @@ export default function CreateRecipe() {
           };
         });
 
-      console.log("Submitting recipe:", {
-        title: title.trim(),
-        instructionsLength: instructions.trim().length,
-        cookingTime: parseInt(cookingTime) || 0,
-        categoryId: selectedCategory,
-        ingredients: validIngredients,
-        hasImage: !!image,
-      });
-
       return createRecipe(
         title.trim(),
         instructions.trim(),
@@ -86,47 +82,12 @@ export default function CreateRecipe() {
     },
     onError: (err: any) => {
       console.error("Recipe creation error:", err);
-      console.error("Error response data:", err?.response?.data);
-      console.error("Error response status:", err?.response?.status);
-
       let errorMessage = "Failed to create recipe. Please try again.";
-
-      // Try to extract error message from HTML response
-      if (err?.response?.data) {
-        const data = err.response.data;
-
-        // If it's an HTML string, try to extract the error message
-        if (typeof data === "string") {
-          // Try to extract TypeError message
-          const typeErrorMatch = data.match(/TypeError: ([^<\n]+)/);
-          if (typeErrorMatch) {
-            errorMessage = `Backend Error: ${typeErrorMatch[1].trim()}`;
-          } else {
-            // Try to find any error message
-            const errorMatch = data.match(/Error: ([^<\n]+)/);
-            if (errorMatch) {
-              errorMessage = errorMatch[1].trim();
-            } else if (data.length < 200) {
-              // If it's a short string, use it directly
-              errorMessage = data;
-            } else {
-              errorMessage =
-                "Backend error occurred. Check console for details.";
-            }
-          }
-        } else if (data.message) {
-          errorMessage = data.message;
-        } else if (data.error) {
-          errorMessage = data.error;
-        } else if (typeof data === "string") {
-          errorMessage = data;
-        } else if (data.toString) {
-          errorMessage = data.toString();
-        }
+      if (err?.response?.data?.message) {
+        errorMessage = err.response.data.message;
       } else if (err?.message) {
         errorMessage = err.message;
       }
-
       setError(errorMessage);
       Alert.alert("Error", errorMessage);
     },
@@ -204,262 +165,252 @@ export default function CreateRecipe() {
       return;
     }
 
-    // Validate ingredient quantities
-    const invalidQuantities = selectedIngredients.filter((ing) => {
-      const qty = parseFloat(ing.quantity);
-      return isNaN(qty) || qty <= 0;
-    });
-    if (invalidQuantities.length > 0) {
-      setError("Please enter valid quantities for all ingredients");
-      return;
-    }
-
     mutate();
   };
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="close" size={28} color="#111827" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Create Recipe</Text>
-        <TouchableOpacity
-          onPress={handleSubmit}
-          disabled={isPending}
-          style={[
-            styles.submitButton,
-            isPending && styles.submitButtonDisabled,
-          ]}
-        >
-          <Text style={styles.submitButtonText}>
-            {isPending ? "..." : "Post"}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Error Message */}
-      {error ? (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      ) : null}
-
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Image Picker */}
-        <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
-          {image ? (
-            <Image source={{ uri: image }} style={styles.image} />
-          ) : (
-            <View style={styles.imagePlaceholder}>
-              <Ionicons name="camera-outline" size={40} color="#9CA3AF" />
-              <Text style={styles.imagePlaceholderText}>Add Photo</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-
-        {/* Title */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Title</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Recipe name"
-            placeholderTextColor="#9CA3AF"
-            value={title}
-            onChangeText={setTitle}
-          />
-        </View>
-
-        {/* Instructions */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Instructions</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            placeholder="How to make this recipe..."
-            placeholderTextColor="#9CA3AF"
-            value={instructions}
-            onChangeText={setInstructions}
-            multiline
-            numberOfLines={5}
-            textAlignVertical="top"
-          />
-        </View>
-
-        {/* Cooking Time */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Cooking Time (minutes)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="30"
-            placeholderTextColor="#9CA3AF"
-            value={cookingTime}
-            onChangeText={setCookingTime}
-            keyboardType="numeric"
-          />
-        </View>
-
-        {/* Category */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Category</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.categoryScroll}
+    <LiqmahBackground>
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
+            <X size={24} color={Colors.text.primary} />
+          </TouchableOpacity>
+          <LiqmahText variant="headline" weight="bold">Create Recipe</LiqmahText>
+          <TouchableOpacity
+            onPress={handleSubmit}
+            disabled={isPending}
+            style={[
+              styles.submitButton,
+              isPending && styles.submitButtonDisabled,
+            ]}
           >
-            {categories?.map((category: Category) => (
-              <TouchableOpacity
-                key={category._id}
-                style={[
-                  styles.categoryChip,
-                  selectedCategory === category._id &&
-                    styles.categoryChipSelected,
-                ]}
-                onPress={() => setSelectedCategory(category._id)}
-              >
-                <Text
-                  style={[
-                    styles.categoryChipText,
-                    selectedCategory === category._id &&
-                      styles.categoryChipTextSelected,
-                  ]}
-                >
-                  {category.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+            <LiqmahText weight="semiBold" color={Colors.base.white}>
+              {isPending ? "..." : "Post"}
+            </LiqmahText>
+          </TouchableOpacity>
         </View>
 
-        {/* Ingredients */}
-        <View style={styles.inputContainer}>
-          <View style={styles.ingredientsHeader}>
-            <Text style={styles.label}>Ingredients</Text>
-            <TouchableOpacity onPress={addIngredient}>
-              <Ionicons name="add-circle" size={28} color="#3B82F6" />
-            </TouchableOpacity>
+        {/* Error Message */}
+        {error ? (
+          <View style={styles.errorContainer}>
+            <LiqmahText style={styles.errorText} color="#DC2626">{error}</LiqmahText>
           </View>
+        ) : null}
 
-          {selectedIngredients.map((ing, index) => (
-            <View key={index} style={styles.ingredientRow}>
-              <View style={styles.ingredientSelect}>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  nestedScrollEnabled
-                >
-                  {ingredients?.map((ingredient: Ingredient) => (
-                    <TouchableOpacity
-                      key={ingredient._id}
-                      style={[
-                        styles.ingredientChip,
-                        ing.ingredientId === ingredient._id &&
-                          styles.ingredientChipSelected,
-                      ]}
-                      onPress={() =>
-                        updateIngredient(index, "ingredientId", ingredient._id)
-                      }
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          <LiqmahGlass intensity={60} style={styles.formCard}>
+            {/* Image Picker */}
+            <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
+              {image ? (
+                <Image source={{ uri: image }} style={styles.image} />
+              ) : (
+                <View style={styles.imagePlaceholder}>
+                  <Camera size={40} color={Colors.text.tertiary} />
+                  <LiqmahText style={styles.imagePlaceholderText} color={Colors.text.secondary}>Add Photo</LiqmahText>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            {/* Basic Info */}
+            <LiqmahInput
+              label="Title"
+              placeholder="Recipe name"
+              value={title}
+              onChangeText={setTitle}
+              icon={<Type size={20} color={Colors.text.tertiary} />}
+            />
+
+            <LiqmahInput
+              label="Cooking Time (minutes)"
+              placeholder="30"
+              value={cookingTime}
+              onChangeText={setCookingTime}
+              keyboardType="numeric"
+              icon={<Clock size={20} color={Colors.text.tertiary} />}
+            />
+
+            {/* Category */}
+            <View style={styles.inputGroup}>
+              <LiqmahText style={styles.label} weight="medium" variant="caption">Category</LiqmahText>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.categoryScroll}
+              >
+                {categories?.map((category: Category) => (
+                  <TouchableOpacity
+                    key={category._id}
+                    style={[
+                      styles.categoryChip,
+                      selectedCategory === category._id &&
+                        styles.categoryChipSelected,
+                    ]}
+                    onPress={() => setSelectedCategory(category._id)}
+                  >
+                    <LiqmahText
+                      variant="caption"
+                      color={selectedCategory === category._id ? Colors.base.white : Colors.text.secondary}
+                      weight={selectedCategory === category._id ? "medium" : "regular"}
                     >
-                      <Text
-                        style={[
-                          styles.ingredientChipText,
-                          ing.ingredientId === ingredient._id &&
-                            styles.ingredientChipTextSelected,
-                        ]}
-                      >
-                        {ingredient.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-              <View style={styles.ingredientInputs}>
-                <TextInput
-                  style={styles.quantityInput}
-                  placeholder="Qty"
-                  placeholderTextColor="#9CA3AF"
-                  value={ing.quantity}
-                  onChangeText={(val) =>
-                    updateIngredient(index, "quantity", val)
-                  }
-                  keyboardType="numeric"
-                />
-                <TextInput
-                  style={styles.unitInput}
-                  placeholder="Unit"
-                  placeholderTextColor="#9CA3AF"
-                  value={ing.unit}
-                  onChangeText={(val) => updateIngredient(index, "unit", val)}
-                />
-                <TouchableOpacity onPress={() => removeIngredient(index)}>
-                  <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                      {category.name}
+                    </LiqmahText>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* Ingredients */}
+            <View style={styles.inputGroup}>
+              <View style={styles.sectionHeader}>
+                <LiqmahText style={styles.label} weight="medium" variant="caption">Ingredients</LiqmahText>
+                <TouchableOpacity onPress={addIngredient} style={styles.addButton}>
+                  <Plus size={20} color={Colors.primary.mint} />
+                  <LiqmahText variant="caption" color={Colors.primary.mint} weight="semiBold">Add</LiqmahText>
                 </TouchableOpacity>
               </View>
-            </View>
-          ))}
-        </View>
 
-        <View style={styles.bottomPadding} />
-      </ScrollView>
-    </View>
+              {selectedIngredients.map((ing, index) => (
+                <View key={index} style={styles.ingredientRow}>
+                  <View style={styles.ingredientSelect}>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      nestedScrollEnabled
+                    >
+                      {ingredients?.map((ingredient: Ingredient) => (
+                        <TouchableOpacity
+                          key={ingredient._id}
+                          style={[
+                            styles.ingredientChip,
+                            ing.ingredientId === ingredient._id &&
+                              styles.ingredientChipSelected,
+                          ]}
+                          onPress={() =>
+                            updateIngredient(index, "ingredientId", ingredient._id)
+                          }
+                        >
+                          <LiqmahText
+                            variant="micro"
+                            color={ing.ingredientId === ingredient._id ? Colors.base.white : Colors.text.secondary}
+                          >
+                            {ingredient.name}
+                          </LiqmahText>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                  <View style={styles.ingredientInputs}>
+                    <TextInput
+                      style={styles.quantityInput}
+                      placeholder="Qty"
+                      placeholderTextColor={Colors.text.tertiary}
+                      value={ing.quantity}
+                      onChangeText={(val) =>
+                        updateIngredient(index, "quantity", val)
+                      }
+                      keyboardType="numeric"
+                      cursorColor={Colors.primary.mint}
+                      selectionColor="transparent"
+                      underlineColorAndroid="transparent"
+                      outlineStyle="none"
+                    />
+                    <TextInput
+                      style={styles.unitInput}
+                      placeholder="Unit"
+                      placeholderTextColor={Colors.text.tertiary}
+                      value={ing.unit}
+                      onChangeText={(val) => updateIngredient(index, "unit", val)}
+                      cursorColor={Colors.primary.mint}
+                      selectionColor="transparent"
+                      underlineColorAndroid="transparent"
+                      outlineStyle="none"
+                    />
+                    <TouchableOpacity onPress={() => removeIngredient(index)} style={styles.removeButton}>
+                      <Trash2 size={18} color="#EF4444" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </View>
+
+            {/* Instructions */}
+            <View style={styles.inputGroup}>
+              <LiqmahText style={styles.label} weight="medium" variant="caption">Instructions</LiqmahText>
+              <TextInput
+                style={[styles.textArea]}
+                placeholder="How to make this recipe..."
+                placeholderTextColor={Colors.text.tertiary}
+                value={instructions}
+                onChangeText={setInstructions}
+                multiline
+                numberOfLines={5}
+                textAlignVertical="top"
+                cursorColor={Colors.primary.mint}
+                selectionColor="transparent"
+                underlineColorAndroid="transparent"
+                outlineStyle="none"
+              />
+            </View>
+          </LiqmahGlass>
+          <View style={styles.bottomPadding} />
+        </ScrollView>
+      </View>
+    </LiqmahBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
+    paddingHorizontal: Layout.spacing.lg,
     paddingTop: 60,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    paddingBottom: Layout.spacing.md,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#111827",
+  iconButton: {
+    padding: 4,
   },
   submitButton: {
-    backgroundColor: "#3B82F6",
+    backgroundColor: Colors.primary.mint,
     paddingHorizontal: 20,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: Layout.radius.pill,
+    ...Shadows.button.mint,
   },
   submitButtonDisabled: {
     opacity: 0.6,
   },
-  submitButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "600",
-  },
   errorContainer: {
-    backgroundColor: "#FEE2E2",
+    backgroundColor: "rgba(254, 226, 226, 0.5)",
     padding: 12,
     marginHorizontal: 16,
-    marginTop: 8,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#EF4444",
   },
   errorText: {
-    color: "#DC2626",
-    fontSize: 14,
     textAlign: "center",
   },
   content: {
     flex: 1,
-    padding: 16,
+    padding: Layout.spacing.lg,
+  },
+  formCard: {
+    padding: Layout.spacing.lg,
+    borderRadius: Layout.radius.card,
   },
   imagePicker: {
     width: "100%",
     height: 200,
-    borderRadius: 12,
+    borderRadius: Layout.radius.card,
     overflow: "hidden",
-    marginBottom: 20,
+    marginBottom: Layout.spacing.lg,
+    backgroundColor: Colors.base.cloud,
   },
   image: {
     width: "100%",
@@ -468,37 +419,31 @@ const styles = StyleSheet.create({
   imagePlaceholder: {
     width: "100%",
     height: "100%",
-    backgroundColor: "#F3F4F6",
     justifyContent: "center",
     alignItems: "center",
   },
   imagePlaceholderText: {
     marginTop: 8,
-    color: "#9CA3AF",
-    fontSize: 14,
   },
-  inputContainer: {
-    marginBottom: 20,
+  inputGroup: {
+    marginBottom: Layout.spacing.lg,
   },
   label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#374151",
+    color: Colors.text.secondary,
     marginBottom: 8,
-  },
-  input: {
-    backgroundColor: "#F9FAFB",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: "#111827",
+    marginLeft: 4,
   },
   textArea: {
+    backgroundColor: Colors.base.glass.light,
+    borderWidth: 1,
+    borderColor: Colors.base.border.medium,
+    borderRadius: Layout.radius.input,
+    padding: 16,
     height: 120,
-    paddingTop: 14,
+    fontFamily: Typography.fonts.regular,
+    fontSize: Typography.sizes.body,
+    color: Colors.text.primary,
+    outlineStyle: 'none',
   },
   categoryScroll: {
     flexDirection: "row",
@@ -506,31 +451,34 @@ const styles = StyleSheet.create({
   categoryChip: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: "#F3F4F6",
-    borderRadius: 20,
+    backgroundColor: Colors.base.glass.light,
+    borderRadius: Layout.radius.pill,
     marginRight: 8,
+    borderWidth: 1,
+    borderColor: Colors.base.border.light,
   },
   categoryChipSelected: {
-    backgroundColor: "#3B82F6",
+    backgroundColor: Colors.primary.mint,
+    borderColor: Colors.primary.mint,
   },
-  categoryChipText: {
-    color: "#6B7280",
-    fontWeight: "500",
-  },
-  categoryChipTextSelected: {
-    color: "#FFFFFF",
-  },
-  ingredientsHeader: {
+  sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 8,
   },
+  addButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
   ingredientRow: {
     marginBottom: 12,
-    backgroundColor: "#F9FAFB",
-    borderRadius: 12,
+    backgroundColor: Colors.base.glass.light,
+    borderRadius: Layout.radius.button,
     padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.base.border.light,
   },
   ingredientSelect: {
     marginBottom: 8,
@@ -538,19 +486,12 @@ const styles = StyleSheet.create({
   ingredientChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: "#E5E7EB",
-    borderRadius: 16,
+    backgroundColor: Colors.base.cloud,
+    borderRadius: Layout.radius.pill,
     marginRight: 6,
   },
   ingredientChipSelected: {
-    backgroundColor: "#22C55E",
-  },
-  ingredientChipText: {
-    color: "#6B7280",
-    fontSize: 12,
-  },
-  ingredientChipTextSelected: {
-    color: "#FFFFFF",
+    backgroundColor: Colors.primary.mint,
   },
   ingredientInputs: {
     flexDirection: "row",
@@ -559,23 +500,32 @@ const styles = StyleSheet.create({
   },
   quantityInput: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Colors.base.white,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: Colors.base.border.medium,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 14,
+    fontFamily: Typography.fonts.regular,
+    color: Colors.text.primary,
+    outlineStyle: 'none',
   },
   unitInput: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Colors.base.white,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: Colors.base.border.medium,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 14,
+    fontFamily: Typography.fonts.regular,
+    color: Colors.text.primary,
+    outlineStyle: 'none',
+  },
+  removeButton: {
+    padding: 4,
   },
   bottomPadding: {
     height: 40,

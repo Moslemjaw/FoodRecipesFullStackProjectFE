@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from "react";
 import {
   StyleSheet,
-  Text,
   View,
   TextInput,
   FlatList,
@@ -11,13 +10,18 @@ import {
   RefreshControl,
 } from "react-native";
 import { useQuery } from "@tanstack/react-query";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { getAllRecipes } from "@/api/recipes";
 import { getAllCategories } from "@/api/categories";
 import { getImageUrl } from "@/utils/imageUtils";
 import Recipe from "@/types/Recipe";
 import Category from "@/types/Category";
+import { LiqmahBackground } from "@/components/Liqmah/LiqmahBackground";
+import { LiqmahGlass } from "@/components/Liqmah/LiqmahGlass";
+import { LiqmahText } from "@/components/Liqmah/LiqmahText";
+import { Colors, Layout, Shadows } from "@/constants/LiqmahTheme";
+import { Search, XCircle, Clock, Tag, Utensils } from "lucide-react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Explore() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -33,15 +37,6 @@ export default function Explore() {
     queryKey: ["recipes"],
     queryFn: async () => {
       const data = await getAllRecipes();
-      console.log("Fetched recipes:", data.length);
-      // Log first recipe's image to debug
-      if (data.length > 0) {
-        console.log("First recipe image field:", data[0].image);
-        console.log(
-          "First recipe full data:",
-          JSON.stringify(data[0], null, 2)
-        );
-      }
       return data;
     },
   });
@@ -76,7 +71,7 @@ export default function Explore() {
   }, [recipes, searchQuery, selectedCategory]);
 
   const handleRecipePress = (recipeId: string) => {
-    router.push(`/(protected)/recipe/${recipeId}` as any);
+    router.push(`/recipe/${recipeId}` as any);
   };
 
   const renderRecipeCard = ({ item }: { item: Recipe }) => {
@@ -87,57 +82,41 @@ export default function Explore() {
 
     const imageUrl = getImageUrl(item.image);
 
-    // Debug logging
-    if (item.image) {
-      console.log(`Recipe "${item.title}" - Original image:`, item.image);
-      console.log(`Recipe "${item.title}" - Processed image URL:`, imageUrl);
-    }
-
     return (
       <TouchableOpacity
-        style={styles.recipeCard}
+        style={styles.recipeCardContainer}
         onPress={() => handleRecipePress(item._id)}
-        activeOpacity={0.8}
+        activeOpacity={0.9}
       >
-        {imageUrl ? (
-          <Image
-            source={{ uri: imageUrl }}
-            style={styles.recipeImage}
-            onError={(error) => {
-              console.error(
-                `Image load error for recipe "${item.title}":`,
-                error.nativeEvent.error
-              );
-              console.error(`Failed URL:`, imageUrl);
-            }}
-            onLoad={() => {
-              console.log(
-                `Image loaded successfully for recipe "${item.title}"`
-              );
-            }}
-          />
-        ) : (
-          <View style={styles.recipeImagePlaceholder}>
-            <Ionicons name="restaurant-outline" size={40} color="#9CA3AF" />
-          </View>
-        )}
-        <View style={styles.recipeInfo}>
-          <Text style={styles.recipeTitle} numberOfLines={2}>
-            {item.title}
-          </Text>
-          <View style={styles.recipeMeta}>
-            {item.cookingTime && (
+        <LiqmahGlass intensity={80} style={styles.recipeCard}>
+          {imageUrl ? (
+            <Image
+              source={{ uri: imageUrl }}
+              style={styles.recipeImage}
+            />
+          ) : (
+            <View style={styles.recipeImagePlaceholder}>
+              <Utensils size={40} color={Colors.text.tertiary} />
+            </View>
+          )}
+          <View style={styles.recipeInfo}>
+            <LiqmahText variant="body" weight="semiBold" style={styles.recipeTitle} numberOfLines={2}>
+              {item.title}
+            </LiqmahText>
+            <View style={styles.recipeMeta}>
+              {item.cookingTime && (
+                <View style={styles.metaItem}>
+                  <Clock size={14} color={Colors.text.secondary} />
+                  <LiqmahText variant="micro" color={Colors.text.secondary}>{item.cookingTime} min</LiqmahText>
+                </View>
+              )}
               <View style={styles.metaItem}>
-                <Ionicons name="time-outline" size={14} color="#6B7280" />
-                <Text style={styles.metaText}>{item.cookingTime} min</Text>
+                <Tag size={14} color={Colors.text.secondary} />
+                <LiqmahText variant="micro" color={Colors.text.secondary}>{categoryName}</LiqmahText>
               </View>
-            )}
-            <View style={styles.metaItem}>
-              <Ionicons name="pricetag-outline" size={14} color="#6B7280" />
-              <Text style={styles.metaText}>{categoryName}</Text>
             </View>
           </View>
-        </View>
+        </LiqmahGlass>
       </TouchableOpacity>
     );
   };
@@ -147,243 +126,225 @@ export default function Explore() {
     return (
       <TouchableOpacity
         key={category._id}
-        style={[styles.categoryChip, isSelected && styles.categoryChipSelected]}
         onPress={() => setSelectedCategory(isSelected ? null : category._id)}
+        activeOpacity={0.8}
       >
-        <Text
-          style={[
-            styles.categoryChipText,
-            isSelected && styles.categoryChipTextSelected,
-          ]}
+        <LiqmahGlass 
+          intensity={isSelected ? 60 : 30} 
+          style={[styles.categoryChip, isSelected && styles.categoryChipSelected]}
         >
-          {category.name}
-        </Text>
+          <LiqmahText
+            variant="caption"
+            weight={isSelected ? "medium" : "regular"}
+            color={isSelected ? Colors.base.white : Colors.text.secondary}
+          >
+            {category.name}
+          </LiqmahText>
+        </LiqmahGlass>
       </TouchableOpacity>
     );
   };
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3B82F6" />
-        <Text style={styles.loadingText}>Loading recipes...</Text>
-      </View>
+      <LiqmahBackground>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary.mint} />
+          <LiqmahText style={styles.loadingText}>Loading recipes...</LiqmahText>
+        </View>
+      </LiqmahBackground>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search-outline" size={20} color="#9CA3AF" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search recipes..."
-            placeholderTextColor="#9CA3AF"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery("")}>
-              <Ionicons name="close-circle" size={20} color="#9CA3AF" />
-            </TouchableOpacity>
-          )}
+    <LiqmahBackground gradient={Colors.gradients.aquaDaybreak}>
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        {/* Search Bar */}
+        <View style={styles.header}>
+          <LiqmahGlass intensity={50} style={styles.searchBar}>
+            <Search size={20} color={Colors.text.tertiary} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search recipes..."
+              placeholderTextColor={Colors.text.tertiary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              cursorColor={Colors.primary.mint}
+              selectionColor="transparent"
+              underlineColorAndroid="transparent"
+              outlineStyle="none"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery("")}>
+                <XCircle size={20} color={Colors.text.tertiary} />
+              </TouchableOpacity>
+            )}
+          </LiqmahGlass>
         </View>
-      </View>
 
-      {/* Category Filters */}
-      {!categoriesLoading && categories.length > 0 && (
-        <View style={styles.categoriesContainer}>
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            data={categories}
-            renderItem={({ item }) => renderCategoryChip(item)}
-            keyExtractor={(item) => item._id}
-            contentContainerStyle={styles.categoriesList}
-          />
-        </View>
-      )}
-
-      {/* Recipes Grid */}
-      <FlatList
-        data={filteredRecipes}
-        renderItem={renderRecipeCard}
-        keyExtractor={(item) => item._id}
-        numColumns={2}
-        contentContainerStyle={styles.recipesList}
-        columnWrapperStyle={styles.recipeRow}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
-            tintColor="#3B82F6"
-          />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="search-outline" size={64} color="#D1D5DB" />
-            <Text style={styles.emptyText}>
-              {searchQuery || selectedCategory
-                ? "No recipes found"
-                : "No recipes available"}
-            </Text>
-            <Text style={styles.emptySubtext}>
-              {searchQuery || selectedCategory
-                ? "Try adjusting your search or filters"
-                : "Check back later for new recipes"}
-            </Text>
+        {/* Category Filters */}
+        {!categoriesLoading && categories.length > 0 && (
+          <View style={styles.categoriesContainer}>
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={categories}
+              renderItem={({ item }) => renderCategoryChip(item)}
+              keyExtractor={(item) => item._id}
+              contentContainerStyle={styles.categoriesList}
+            />
           </View>
-        }
-      />
-    </View>
+        )}
+
+        {/* Recipes Grid */}
+        <FlatList
+          data={filteredRecipes}
+          renderItem={renderRecipeCard}
+          keyExtractor={(item) => item._id}
+          numColumns={2}
+          contentContainerStyle={styles.recipesList}
+          columnWrapperStyle={styles.recipeRow}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor={Colors.primary.mint}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Search size={64} color={Colors.base.border.medium} />
+              <LiqmahText variant="headline" weight="semiBold" color={Colors.text.secondary} style={styles.emptyText}>
+                {searchQuery || selectedCategory
+                  ? "No recipes found"
+                  : "No recipes available"}
+              </LiqmahText>
+              <LiqmahText variant="body" color={Colors.text.tertiary} style={styles.emptySubtext}>
+                {searchQuery || selectedCategory
+                  ? "Try adjusting your search or filters"
+                  : "Check back later for new recipes"}
+              </LiqmahText>
+            </View>
+          }
+        />
+      </SafeAreaView>
+    </LiqmahBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F9FAFB",
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: "#6B7280",
+    marginTop: Layout.spacing.md,
+    color: Colors.text.secondary,
   },
-  searchContainer: {
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+  header: {
+    paddingHorizontal: Layout.spacing.lg,
+    paddingTop: Layout.spacing.md,
+    paddingBottom: Layout.spacing.sm,
   },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
+    paddingHorizontal: Layout.spacing.md,
+    height: 56,
+    borderRadius: Layout.radius.input,
+    gap: Layout.spacing.sm,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: "#111827",
+    color: Colors.text.primary,
+    fontFamily: "Inter_400Regular",
+    borderWidth: 0,
+    outlineStyle: 'none',
   },
   categoriesContainer: {
-    backgroundColor: "#FFFFFF",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    paddingVertical: Layout.spacing.sm,
   },
   categoriesList: {
-    paddingHorizontal: 16,
-    gap: 8,
+    paddingHorizontal: Layout.spacing.lg,
+    gap: Layout.spacing.sm,
   },
   categoryChip: {
-    paddingHorizontal: 16,
+    paddingHorizontal: Layout.spacing.md,
     paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: "#F3F4F6",
+    borderRadius: Layout.radius.pill,
+    backgroundColor: Colors.base.glass.light,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: Colors.base.border.light,
   },
   categoryChipSelected: {
-    backgroundColor: "#3B82F6",
-    borderColor: "#3B82F6",
-  },
-  categoryChipText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#6B7280",
-  },
-  categoryChipTextSelected: {
-    color: "#FFFFFF",
+    backgroundColor: Colors.primary.mint,
+    borderColor: Colors.primary.mint,
   },
   recipesList: {
-    padding: 16,
+    padding: Layout.spacing.lg,
+    paddingBottom: 100, // Space for bottom dock
   },
   recipeRow: {
     justifyContent: "space-between",
-    marginBottom: 16,
+    marginBottom: Layout.spacing.md,
+  },
+  recipeCardContainer: {
+    width: "48%",
   },
   recipeCard: {
-    width: "48%",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
+    borderRadius: Layout.radius.card,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    padding: 0,
+    ...Shadows.glassCard,
   },
   recipeImage: {
     width: "100%",
     height: 160,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: Colors.base.cloud,
   },
   recipeImagePlaceholder: {
     width: "100%",
     height: 160,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: Colors.base.cloud,
     justifyContent: "center",
     alignItems: "center",
   },
   recipeInfo: {
-    padding: 12,
+    padding: Layout.spacing.md,
   },
   recipeTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#111827",
-    marginBottom: 8,
-    minHeight: 44,
+    marginBottom: Layout.spacing.xs,
+    minHeight: 40,
   },
   recipeMeta: {
     flexDirection: "row",
-    gap: 12,
+    gap: Layout.spacing.sm,
     flexWrap: "wrap",
+    marginTop: Layout.spacing.xs,
   },
   metaItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
   },
-  metaText: {
-    fontSize: 12,
-    color: "#6B7280",
-  },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 64,
-    paddingHorizontal: 32,
+    paddingVertical: Layout.spacing.xxl,
+    paddingHorizontal: Layout.spacing.xl,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#374151",
-    marginTop: 16,
+    marginTop: Layout.spacing.md,
     textAlign: "center",
   },
   emptySubtext: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginTop: 8,
+    marginTop: Layout.spacing.xs,
     textAlign: "center",
   },
 });

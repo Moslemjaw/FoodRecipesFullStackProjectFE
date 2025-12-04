@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Home, Search, Heart, User, Plus, X, ChevronRight, Folder, Utensils, Carrot } from "lucide-react-native";
 import { Tabs, useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -9,6 +9,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { BlurView } from "expo-blur";
+import { Colors, Shadows, Layout, Typography } from "@/constants/LiqmahTheme";
 
 export default function TabsLayout() {
   const router = useRouter();
@@ -23,17 +25,34 @@ export default function TabsLayout() {
     <>
       <Tabs
         screenOptions={{
-          tabBarActiveTintColor: "#3B82F6",
-          tabBarInactiveTintColor: "#9CA3AF",
+          tabBarActiveTintColor: Colors.primary.mint,
+          tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.5)',
           tabBarStyle: {
-            backgroundColor: "#FFFFFF",
-            borderTopWidth: 1,
-            borderTopColor: "#E5E7EB",
-            paddingBottom: 5,
-            paddingTop: 5,
-            height: 60,
+            backgroundColor: 'transparent',
+            borderTopWidth: 0,
+            paddingBottom: 0,
+            paddingTop: 0,
+            height: 70,
+            position: 'absolute',
+            bottom: 20,
+            left: 20,
+            right: 20,
+            elevation: 0,
           },
           headerShown: false,
+          tabBarLabelStyle: {
+            display: 'none', // No labels
+          },
+          tabBarIconStyle: {
+            marginTop: 0,
+          },
+          tabBarBackground: () => (
+            <BlurView
+              intensity={80}
+              tint="dark"
+              style={StyleSheet.absoluteFill}
+            />
+          ),
         }}
       >
         <Tabs.Screen
@@ -41,7 +60,7 @@ export default function TabsLayout() {
           options={{
             title: "Home",
             tabBarIcon: ({ color, size }) => (
-              <Ionicons name="home-outline" size={size} color={color} />
+              <Home size={size} color={color} />
             ),
           }}
         />
@@ -50,7 +69,7 @@ export default function TabsLayout() {
           options={{
             title: "Explore",
             tabBarIcon: ({ color, size }) => (
-              <Ionicons name="search-outline" size={size} color={color} />
+              <Search size={size} color={color} />
             ),
           }}
         />
@@ -60,13 +79,14 @@ export default function TabsLayout() {
             title: "",
             tabBarIcon: () => (
               <View style={styles.createButton}>
-                <Ionicons name="add" size={30} color="#FFFFFF" />
+                <Plus size={30} color="#FFFFFF" />
               </View>
             ),
             tabBarButton: ({ children }) => (
               <TouchableOpacity
                 onPress={() => setModalVisible(true)}
                 style={styles.createButtonContainer}
+                activeOpacity={0.9}
               >
                 {children}
               </TouchableOpacity>
@@ -78,7 +98,7 @@ export default function TabsLayout() {
           options={{
             title: "Favorites",
             tabBarIcon: ({ color, size }) => (
-              <Ionicons name="heart-outline" size={size} color={color} />
+              <Heart size={size} color={color} />
             ),
           }}
         />
@@ -87,7 +107,7 @@ export default function TabsLayout() {
           options={{
             title: "Profile",
             tabBarIcon: ({ color, size }) => (
-              <Ionicons name="person-outline" size={size} color={color} />
+              <User size={size} color={color} />
             ),
           }}
         />
@@ -108,7 +128,7 @@ export default function TabsLayout() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Create New</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#6B7280" />
+                <X size={24} color={Colors.text.secondary} />
               </TouchableOpacity>
             </View>
 
@@ -118,8 +138,8 @@ export default function TabsLayout() {
                 handleCreateOption("/(protected)/(modals)/createRecipe")
               }
             >
-              <View style={[styles.optionIcon, { backgroundColor: "#FEE2E2" }]}>
-                <Ionicons name="restaurant-outline" size={24} color="#EF4444" />
+              <View style={[styles.optionIcon, { backgroundColor: "rgba(239, 68, 68, 0.1)" }]}>
+                <Utensils size={24} color="#EF4444" />
               </View>
               <View style={styles.optionText}>
                 <Text style={styles.optionTitle}>Recipe</Text>
@@ -127,7 +147,7 @@ export default function TabsLayout() {
                   Share your delicious recipe
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+              <ChevronRight size={20} color={Colors.text.tertiary} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -136,14 +156,14 @@ export default function TabsLayout() {
                 handleCreateOption("/(protected)/(modals)/createIngredient")
               }
             >
-              <View style={[styles.optionIcon, { backgroundColor: "#DCFCE7" }]}>
-                <Ionicons name="nutrition-outline" size={24} color="#22C55E" />
+              <View style={[styles.optionIcon, { backgroundColor: "rgba(34, 197, 94, 0.1)" }]}>
+                <Carrot size={24} color="#22C55E" />
               </View>
               <View style={styles.optionText}>
                 <Text style={styles.optionTitle}>Ingredient</Text>
                 <Text style={styles.optionSubtitle}>Add a new ingredient</Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+              <ChevronRight size={20} color={Colors.text.tertiary} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -152,14 +172,14 @@ export default function TabsLayout() {
                 handleCreateOption("/(protected)/(modals)/createCategory")
               }
             >
-              <View style={[styles.optionIcon, { backgroundColor: "#DBEAFE" }]}>
-                <Ionicons name="folder-outline" size={24} color="#3B82F6" />
+              <View style={[styles.optionIcon, { backgroundColor: "rgba(59, 130, 246, 0.1)" }]}>
+                <Folder size={24} color="#3B82F6" />
               </View>
               <View style={styles.optionText}>
                 <Text style={styles.optionTitle}>Category</Text>
                 <Text style={styles.optionSubtitle}>Create a new category</Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+              <ChevronRight size={20} color={Colors.text.tertiary} />
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -173,56 +193,55 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    marginTop: -32, // More pronounced lift for floating feel
   },
   createButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "#3B82F6",
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.primary.mint,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 20,
-    shadowColor: "#3B82F6",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    ...Shadows.button.mint,
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.3)', // Subtle border
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    paddingBottom: 40,
+    backgroundColor: Colors.base.surface,
+    borderTopLeftRadius: Layout.radius.modal,
+    borderTopRightRadius: Layout.radius.modal,
+    padding: 24,
+    paddingBottom: 48,
+    ...Shadows.floating,
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 24,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#111827",
+    fontFamily: Typography.fonts.bold,
+    fontSize: Typography.sizes.headline,
+    color: Colors.text.primary,
   },
   modalOption: {
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
-    backgroundColor: "#F9FAFB",
-    borderRadius: 12,
+    backgroundColor: Colors.base.cloud,
+    borderRadius: Layout.radius.button,
     marginBottom: 12,
   },
   optionIcon: {
     width: 48,
     height: 48,
-    borderRadius: 12,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 16,
@@ -231,13 +250,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   optionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#111827",
+    fontFamily: Typography.fonts.semiBold,
+    fontSize: Typography.sizes.body,
+    color: Colors.text.primary,
     marginBottom: 2,
   },
   optionSubtitle: {
-    fontSize: 14,
-    color: "#6B7280",
+    fontFamily: Typography.fonts.regular,
+    fontSize: Typography.sizes.caption,
+    color: Colors.text.secondary,
   },
 });

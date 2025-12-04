@@ -1,6 +1,5 @@
 import {
   StyleSheet,
-  Text,
   View,
   TouchableOpacity,
   FlatList,
@@ -12,15 +11,20 @@ import {
 import React, { useContext } from "react";
 import { useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
-import { Ionicons } from "@expo/vector-icons";
 import AuthContext from "@/context/AuthContext";
 import { deleteToken } from "@/api/storage";
 import { me } from "@/api/auth";
-import { getFollowing } from "@/api/follows";
+import { getFollowing, getFollowers } from "@/api/follows";
 import { getMyRecipes } from "@/api/recipes";
 import { getImageUrl } from "@/utils/imageUtils";
 import User from "@/types/User";
 import Recipe from "@/types/Recipe";
+import { LiqmahBackground } from "@/components/Liqmah/LiqmahBackground";
+import { LiqmahCard } from "@/components/Liqmah/LiqmahCard";
+import { LiqmahText } from "@/components/Liqmah/LiqmahText";
+import { LiqmahButton } from "@/components/Liqmah/LiqmahButton";
+import { Colors, Layout, Shadows } from "@/constants/LiqmahTheme";
+import { Clock, Tag, Utensils, LogOut, Users, BookOpen } from "lucide-react-native";
 
 export default function Profile() {
   const { setIsAutheticated } = useContext(AuthContext);
@@ -29,14 +33,21 @@ export default function Profile() {
   const { data: user, isLoading: isLoadingUser } = useQuery({
     queryKey: ["user"],
     queryFn: me,
-    staleTime: 5 * 60 * 1000, // 5 minutes - user data doesn't change often
-    gcTime: 10 * 60 * 1000, // 10 minutes cache time
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 
   const { data: following = [], isLoading: isLoadingFollowing } = useQuery({
     queryKey: ["following"],
     queryFn: getFollowing,
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+
+  const { data: followers = [], isLoading: isLoadingFollowers } = useQuery({
+    queryKey: ["followers"],
+    queryFn: getFollowers,
+    staleTime: 2 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
   });
 
@@ -48,7 +59,7 @@ export default function Profile() {
   } = useQuery({
     queryKey: ["myRecipes"],
     queryFn: getMyRecipes,
-    staleTime: 1 * 60 * 1000, // 1 minute
+    staleTime: 1 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
   });
 
@@ -58,7 +69,7 @@ export default function Profile() {
   };
 
   const handleRecipePress = (recipeId: string) => {
-    router.push(`/(protected)/recipe/${recipeId}` as any);
+    router.push(`/recipe/${recipeId}` as any);
   };
 
   const renderRecipeCard = ({ item }: { item: Recipe }) => {
@@ -67,69 +78,81 @@ export default function Profile() {
         ? item.categoryId.name
         : "Uncategorized";
 
+    const imageUrl = getImageUrl(item.image);
+
     return (
-      <TouchableOpacity
-        style={styles.recipeCard}
+      <LiqmahCard
+        variant="elevated"
+        pressable
         onPress={() => handleRecipePress(item._id)}
-        activeOpacity={0.8}
+        style={styles.recipeCard}
       >
-        {getImageUrl(item.image) ? (
-          <Image
-            source={{ uri: getImageUrl(item.image)! }}
-            style={styles.recipeImage}
-          />
+        {imageUrl ? (
+          <Image source={{ uri: imageUrl }} style={styles.recipeImage} />
         ) : (
           <View style={styles.recipeImagePlaceholder}>
-            <Ionicons name="restaurant-outline" size={40} color="#9CA3AF" />
+            <Utensils size={32} color={Colors.text.tertiary} />
           </View>
         )}
         <View style={styles.recipeInfo}>
-          <Text style={styles.recipeTitle} numberOfLines={2}>
+          <LiqmahText
+            variant="body"
+            weight="semiBold"
+            style={styles.recipeTitle}
+            numberOfLines={2}
+          >
             {item.title}
-          </Text>
+          </LiqmahText>
           <View style={styles.recipeMeta}>
             {item.cookingTime && (
               <View style={styles.metaItem}>
-                <Ionicons name="time-outline" size={14} color="#6B7280" />
-                <Text style={styles.metaText}>{item.cookingTime} min</Text>
+                <Clock size={12} color={Colors.text.secondary} />
+                <LiqmahText variant="micro" color={Colors.text.secondary}>
+                  {item.cookingTime} min
+                </LiqmahText>
               </View>
             )}
             <View style={styles.metaItem}>
-              <Ionicons name="pricetag-outline" size={14} color="#6B7280" />
-              <Text style={styles.metaText}>{categoryName}</Text>
+              <Tag size={12} color={Colors.text.secondary} />
+              <LiqmahText variant="micro" color={Colors.text.secondary}>
+                {categoryName}
+              </LiqmahText>
             </View>
           </View>
         </View>
-      </TouchableOpacity>
+      </LiqmahCard>
     );
   };
 
   const userData = user as User | undefined;
   const followingCount = following.length;
+  const followersCount = followers.length;
 
-  // Show loading only if we have no cached data at all
   if (isLoadingUser && !user) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3B82F6" />
-        <Text style={styles.loadingText}>Loading profile...</Text>
-      </View>
+      <LiqmahBackground>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary.mint} />
+          <LiqmahText style={styles.loadingText}>Loading profile...</LiqmahText>
+        </View>
+      </LiqmahBackground>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <LiqmahBackground>
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={isRefetchingRecipes}
             onRefresh={refetchRecipes}
-            tintColor="#3B82F6"
+            tintColor={Colors.primary.mint}
           />
         }
       >
-        <View style={styles.profileHeader}>
+        <LiqmahCard variant="elevated" style={styles.profileHeader}>
           {userData?.image && getImageUrl(userData.image) ? (
             <Image
               source={{ uri: getImageUrl(userData.image)! }}
@@ -137,52 +160,82 @@ export default function Profile() {
             />
           ) : (
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
+              <LiqmahText variant="display" color={Colors.base.white} weight="bold">
                 {userData?.name?.[0]?.toUpperCase() || "👤"}
-              </Text>
+              </LiqmahText>
             </View>
           )}
-          <Text style={styles.name}>
+          <LiqmahText variant="section" weight="bold" style={styles.name}>
             {userData?.name || "User Profile"}
-          </Text>
-          <Text style={styles.email}>{userData?.email || ""}</Text>
+          </LiqmahText>
+          <LiqmahText variant="body" color={Colors.text.secondary} style={styles.email}>
+            {userData?.email || ""}
+          </LiqmahText>
 
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
               {isLoadingRecipes ? (
-                <ActivityIndicator size="small" color="#3B82F6" />
+                <ActivityIndicator size="small" color={Colors.primary.mint} />
               ) : (
-                <Text style={styles.statNumber}>{recipes.length}</Text>
+                <LiqmahText variant="headline" weight="bold" color={Colors.primary.mint}>
+                  {recipes.length}
+                </LiqmahText>
               )}
-              <Text style={styles.statLabel}>
-                {recipes.length === 1 ? "Recipe" : "Recipes"}
-              </Text>
+              <View style={styles.statLabelRow}>
+                <BookOpen size={14} color={Colors.text.secondary} />
+                <LiqmahText variant="caption" color={Colors.text.secondary}>
+                  Recipes
+                </LiqmahText>
+              </View>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              {isLoadingFollowers ? (
+                <ActivityIndicator size="small" color={Colors.primary.mint} />
+              ) : (
+                <LiqmahText variant="headline" weight="bold" color={Colors.primary.mint}>
+                  {followersCount}
+                </LiqmahText>
+              )}
+              <View style={styles.statLabelRow}>
+                <Users size={14} color={Colors.text.secondary} />
+                <LiqmahText variant="caption" color={Colors.text.secondary}>
+                  Followers
+                </LiqmahText>
+              </View>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               {isLoadingFollowing ? (
-                <ActivityIndicator size="small" color="#3B82F6" />
+                <ActivityIndicator size="small" color={Colors.primary.mint} />
               ) : (
-                <Text style={styles.statNumber}>{followingCount}</Text>
+                <LiqmahText variant="headline" weight="bold" color={Colors.primary.mint}>
+                  {followingCount}
+                </LiqmahText>
               )}
-              <Text style={styles.statLabel}>
-                {followingCount === 1 ? "Following" : "Following"}
-              </Text>
+              <View style={styles.statLabelRow}>
+                <Users size={14} color={Colors.text.secondary} />
+                <LiqmahText variant="caption" color={Colors.text.secondary}>
+                  Following
+                </LiqmahText>
+              </View>
             </View>
           </View>
-        </View>
+        </LiqmahCard>
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>My Recipes</Text>
-            <Text style={styles.sectionSubtitle}>
+            <LiqmahText variant="headline" weight="bold" style={styles.sectionTitle}>
+              My Recipes
+            </LiqmahText>
+            <LiqmahText variant="caption" color={Colors.text.secondary}>
               {recipes.length} {recipes.length === 1 ? "recipe" : "recipes"}
-            </Text>
+            </LiqmahText>
           </View>
 
           {isLoadingRecipes ? (
             <View style={styles.loadingRecipesContainer}>
-              <ActivityIndicator size="large" color="#3B82F6" />
+              <ActivityIndicator size="large" color={Colors.primary.mint} />
             </View>
           ) : recipes.length > 0 ? (
             <FlatList
@@ -195,100 +248,104 @@ export default function Profile() {
               columnWrapperStyle={styles.recipeRow}
             />
           ) : (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="restaurant-outline" size={64} color="#D1D5DB" />
-              <Text style={styles.emptyText}>No recipes yet</Text>
-              <Text style={styles.emptySubtext}>
-                Start creating your first recipe!
-              </Text>
-              <TouchableOpacity
-                style={styles.createButton}
-                onPress={() =>
-                  router.push("/(protected)/(tabs)/create" as any)
-                }
+            <LiqmahCard variant="outlined" style={styles.emptyContainer}>
+              <Utensils size={48} color={Colors.text.tertiary} />
+              <LiqmahText
+                variant="body"
+                weight="semiBold"
+                color={Colors.text.secondary}
+                style={styles.emptyText}
               >
-                <Text style={styles.createButtonText}>Create Recipe</Text>
-              </TouchableOpacity>
-            </View>
+                No recipes yet
+              </LiqmahText>
+              <LiqmahText
+                variant="caption"
+                color={Colors.text.tertiary}
+                style={styles.emptySubtext}
+              >
+                Share your culinary creations with the world!
+              </LiqmahText>
+              <LiqmahButton
+                label="Create Recipe"
+                onPress={() => router.push("/(protected)/(tabs)/create" as any)}
+                style={styles.createButton}
+              />
+            </LiqmahCard>
           )}
         </View>
 
         <View style={styles.section}>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutButtonText}>Logout</Text>
-          </TouchableOpacity>
+          <LiqmahButton
+            label="Logout"
+            variant="outline"
+            onPress={handleLogout}
+            icon={<LogOut size={20} color={Colors.primary.mint} />}
+            style={styles.logoutButton}
+          />
         </View>
       </ScrollView>
-    </View>
+    </LiqmahBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F9FAFB",
-  },
   scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 100,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F9FAFB",
+    minHeight: 400,
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: "#6B7280",
+    marginTop: Layout.spacing.md,
+    color: Colors.text.secondary,
   },
   profileHeader: {
     alignItems: "center",
-    paddingVertical: 32,
-    paddingHorizontal: 20,
-    backgroundColor: "#FFFFFF",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    paddingVertical: Layout.spacing.xl,
+    paddingHorizontal: Layout.spacing.lg,
+    marginHorizontal: Layout.spacing.lg,
+    marginTop: Layout.spacing.lg,
+    marginBottom: Layout.spacing.md,
   },
   avatar: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: "#3B82F6",
+    backgroundColor: Colors.primary.mint,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: Layout.spacing.md,
+    ...Shadows.floating,
   },
   avatarImage: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    marginBottom: 16,
-  },
-  avatarText: {
-    fontSize: 48,
-    color: "#FFFFFF",
-    fontWeight: "600",
+    marginBottom: Layout.spacing.md,
+    borderWidth: 3,
+    borderColor: Colors.base.white,
+    ...Shadows.floating,
   },
   name: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#111827",
     marginBottom: 4,
   },
   email: {
-    fontSize: 16,
-    color: "#6B7280",
-    marginBottom: 24,
+    marginBottom: Layout.spacing.lg,
   },
   statsContainer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
-    paddingTop: 16,
+    paddingTop: Layout.spacing.md,
     borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
+    borderTopColor: Colors.base.border.strong,
   },
   statItem: {
     flex: 1,
@@ -297,36 +354,27 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     height: 40,
-    backgroundColor: "#E5E7EB",
-    marginHorizontal: 24,
+    backgroundColor: Colors.base.border.strong,
+    marginHorizontal: Layout.spacing.md,
   },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 14,
-    color: "#6B7280",
-    fontWeight: "500",
+  statLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 4,
   },
   section: {
-    padding: 20,
-    marginBottom: 8,
+    paddingHorizontal: Layout.spacing.lg,
+    marginBottom: Layout.spacing.md,
   },
   sectionHeader: {
-    marginBottom: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Layout.spacing.md,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    fontSize: 14,
-    color: "#6B7280",
+    color: Colors.text.primary,
   },
   loadingRecipesContainer: {
     paddingVertical: 40,
@@ -337,107 +385,62 @@ const styles = StyleSheet.create({
   },
   recipeRow: {
     justifyContent: "space-between",
-    marginBottom: 16,
+    marginBottom: Layout.spacing.md,
   },
   recipeCard: {
     width: "48%",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
+    padding: 0,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
   },
   recipeImage: {
     width: "100%",
-    height: 160,
-    backgroundColor: "#F3F4F6",
+    height: 140,
+    backgroundColor: Colors.base.cloud,
   },
   recipeImagePlaceholder: {
     width: "100%",
-    height: 160,
-    backgroundColor: "#F3F4F6",
+    height: 140,
+    backgroundColor: Colors.base.cloud,
     justifyContent: "center",
     alignItems: "center",
   },
   recipeInfo: {
-    padding: 12,
+    padding: Layout.spacing.md,
   },
   recipeTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#111827",
-    marginBottom: 8,
-    minHeight: 44,
+    marginBottom: Layout.spacing.xs,
+    minHeight: 40,
   },
   recipeMeta: {
     flexDirection: "row",
-    gap: 12,
+    gap: Layout.spacing.sm,
     flexWrap: "wrap",
+    marginTop: Layout.spacing.xs,
   },
   metaItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
   },
-  metaText: {
-    fontSize: 12,
-    color: "#6B7280",
-  },
   emptyContainer: {
     alignItems: "center",
-    paddingVertical: 48,
-    paddingHorizontal: 32,
+    paddingVertical: Layout.spacing.xl,
+    paddingHorizontal: Layout.spacing.lg,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#374151",
-    marginTop: 16,
+    marginTop: Layout.spacing.md,
     textAlign: "center",
   },
   emptySubtext: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginTop: 8,
+    marginTop: Layout.spacing.xs,
     textAlign: "center",
-    marginBottom: 24,
+    marginBottom: Layout.spacing.lg,
   },
   createButton: {
-    backgroundColor: "#3B82F6",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  createButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
+    width: "100%",
   },
   logoutButton: {
-    backgroundColor: "#EF4444",
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: "center",
-    marginTop: 8,
-    marginBottom: 24,
-    shadowColor: "#EF4444",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  logoutButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
+    marginTop: Layout.spacing.md,
+    marginBottom: Layout.spacing.xl,
   },
 });

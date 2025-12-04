@@ -24,6 +24,9 @@ export const LiqmahInput: React.FC<LiqmahInputProps> = ({
           style={[styles.input, style]}
           placeholderTextColor={Colors.text.tertiary}
           cursorColor={Colors.primary.mint}
+          selectionColor="transparent"
+          underlineColorAndroid="transparent"
+          outlineStyle="none"
           {...props}
         />
       </View>
@@ -47,10 +50,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     height: 56,
-    backgroundColor: Colors.base.glass.light,
+    backgroundColor: Colors.base.surface,
     borderRadius: Layout.radius.input,
     borderWidth: 1,
-    borderColor: Colors.base.border.medium,
+    borderColor: Colors.base.border.strong,
     paddingHorizontal: 16,
   },
   iconContainer: {
@@ -62,6 +65,8 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.body,
     color: Colors.text.primary,
     height: '100%',
+    borderWidth: 0,
+    outlineStyle: 'none',
   },
   errorBorder: {
     borderColor: '#EF4444',

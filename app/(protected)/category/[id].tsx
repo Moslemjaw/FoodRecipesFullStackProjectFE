@@ -66,7 +66,7 @@ const CategoryDetails = () => {
   const renderRecipe = ({ item }: { item: Recipe }) => (
     <TouchableOpacity
       style={styles.recipeCard}
-      onPress={() => router.push(`/(protected)/recipe/${item._id}`)}
+      onPress={() => router.push(`/recipe/${item._id}`)}
       activeOpacity={0.9}
     >
       <View style={styles.imageContainer}>
